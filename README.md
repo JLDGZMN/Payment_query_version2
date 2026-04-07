@@ -156,6 +156,8 @@ In the Vercel project dashboard go to **Settings → Environment Variables** and
 | `NEXT_PUBLIC_APP_URL` | `https://your-app.vercel.app` |
 
 > Make sure `DATABASE_URL` points to a remote MySQL host that allows external connections. Vercel's serverless functions cannot connect to `localhost`.
+>
+> If a deployment fails with `Failed to collect page data for /api/payments`, the deployment is usually missing `DATABASE_URL` or `BETTER_AUTH_SECRET`.
 
 ### Step 4 — Run the migration against your remote database
 

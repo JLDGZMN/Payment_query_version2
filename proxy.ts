@@ -1,18 +1,18 @@
 import { betterFetch } from "@better-fetch/fetch";
 import { NextRequest, NextResponse } from "next/server";
-import type { auth } from "@/lib/auth";
+import type { Auth } from "@/lib/auth";
 
-type Session = typeof auth.$Infer.Session;
+type Session = Auth["$Infer"]["Session"];
 
 const protectedRoutes = ["/dashboard"];
 const authRoutes = ["/", "/signup"];
 
-async function getSession(headers: Headers): Promise<Session | null> {
+async function getSession(request: NextRequest): Promise<Session | null> {
   const { data: session, error } = await betterFetch<Session>(
     "/api/auth/get-session",
     {
-      baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
-      headers,
+      baseURL: request.nextUrl.origin,
+      headers: request.headers,
     }
   );
 
@@ -28,7 +28,7 @@ export async function proxy(request: NextRequest) {
   );
   const isAuthRoute = authRoutes.includes(pathname);
 
-  const session = await getSession(request.headers);
+  const session = await getSession(request);
 
   if (isProtected && !session) {
     const loginUrl = new URL("/", request.url);

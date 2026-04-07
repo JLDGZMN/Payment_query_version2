@@ -1,11 +1,28 @@
 import { betterAuth } from "better-auth";
 import { username } from "better-auth/plugins";
-import { createPool } from "mysql2/promise";
+import { getPool } from "@/lib/db";
+import { getAuthBaseUrl } from "@/lib/server-env";
 
-export const auth = betterAuth({
-  database: createPool(process.env.DATABASE_URL!),
-  emailAndPassword: {
-    enabled: true,
-  },
-  plugins: [username()],
-});
+function createAuth() {
+  return betterAuth({
+    baseURL: getAuthBaseUrl(),
+    secret: process.env.BETTER_AUTH_SECRET,
+    database: getPool(),
+    emailAndPassword: {
+      enabled: true,
+    },
+    plugins: [username()],
+  });
+}
+
+let auth: ReturnType<typeof createAuth> | undefined;
+
+export function getAuth(): ReturnType<typeof createAuth> {
+  if (!auth) {
+    auth = createAuth();
+  }
+
+  return auth;
+}
+
+export type Auth = ReturnType<typeof createAuth>;
