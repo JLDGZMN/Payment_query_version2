@@ -75,10 +75,6 @@ import { getRcdAmountValidationError } from "@/lib/payment-validation";
 
 const COLLECTORS = [
   "Lydinar Dastas",
-  "John Doe",
-  "Jane Smith",
-  "Michael Johnson",
-  "Emily Brown",
   "Julio De Guzman",
   "Ivy Callope",
   "Carla Buganan",
