@@ -260,7 +260,7 @@ export default function ProfilePage() {
 
         <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
           <Card className={`h-full ${dashboardCardClass}`}>
-            <form onSubmit={handleUpdateName}>
+            <form onSubmit={handleUpdateName} className="flex flex-1 flex-col">
               <CardHeader className="gap-1.5 border-b border-border/50 px-6 pt-6 pb-4">
                 <CardTitle className="text-lg font-semibold tracking-tight">Update display name</CardTitle>
                 <CardDescription className="text-sm leading-relaxed">
@@ -288,33 +288,6 @@ export default function ProfilePage() {
                   Keep it recognizable so teammates and accounting staff can identify your
                   requests quickly.
                 </p>
-                <div className="pt-2">
-                  <div className="h-px w-full bg-border/60" />
-                  <section
-                    aria-labelledby="development-team-title"
-                    className="mt-5 rounded-2xl border border-border/50 bg-muted/20 px-4 py-5 text-center shadow-sm"
-                  >
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground/80">
-                      System Credits
-                    </p>
-                    <h3
-                      id="development-team-title"
-                      className="mt-2 text-sm font-semibold tracking-[0.08em] text-foreground/90"
-                    >
-                      Built by the Development Team
-                    </h3>
-                    <ul className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                      {developmentTeam.map((member) => (
-                        <li
-                          key={member}
-                          className="font-medium tracking-[0.01em] text-muted-foreground"
-                        >
-                          {member}
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                </div>
                 {nameError ? <p className={dashboardErrorClass}>{nameError}</p> : null}
                 {nameSuccess ? (
                   <p className={`flex items-center gap-2 ${dashboardSuccessClass}`}>
@@ -336,6 +309,32 @@ export default function ProfilePage() {
                 </Button>
               </CardFooter>
             </form>
+            <div className="border-t border-border/50 px-6 pb-6 pt-5">
+              <section
+                aria-labelledby="development-team-title"
+                className="rounded-2xl border border-border/50 bg-muted/20 px-4 py-5 text-center shadow-sm"
+              >
+                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground/80">
+                  System Credits
+                </p>
+                <h3
+                  id="development-team-title"
+                  className="mt-2 text-sm font-semibold tracking-[0.08em] text-foreground/90"
+                >
+                  Built by the Development Team
+                </h3>
+                <ul className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                  {developmentTeam.map((member) => (
+                    <li
+                      key={member}
+                      className="font-medium tracking-[0.01em] text-muted-foreground"
+                    >
+                      {member}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </div>
           </Card>
 
           <Card className={`h-full ${dashboardCardClass}`}>
