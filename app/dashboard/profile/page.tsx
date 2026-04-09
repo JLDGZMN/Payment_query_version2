@@ -67,6 +67,14 @@ const dashboardErrorClass =
   "rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-3 text-sm leading-relaxed text-destructive";
 const dashboardSuccessClass =
   "rounded-xl border border-emerald-200/80 bg-emerald-50/80 px-3.5 py-3 text-sm leading-relaxed text-emerald-800 shadow-sm dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-100";
+const developmentTeam = [
+  "Julio De Guzman",
+  "Ivy Callope",
+  "Carla Buganan",
+  "Lacel Centeno",
+  "Rizza Rovira",
+  "Baby Jane De Jesus",
+];
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -280,6 +288,33 @@ export default function ProfilePage() {
                   Keep it recognizable so teammates and accounting staff can identify your
                   requests quickly.
                 </p>
+                <div className="pt-2">
+                  <div className="h-px w-full bg-border/60" />
+                  <section
+                    aria-labelledby="development-team-title"
+                    className="mt-5 rounded-2xl border border-border/50 bg-muted/20 px-4 py-5 text-center shadow-sm"
+                  >
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground/80">
+                      System Credits
+                    </p>
+                    <h3
+                      id="development-team-title"
+                      className="mt-2 text-sm font-semibold tracking-[0.08em] text-foreground/90"
+                    >
+                      Built by the Development Team
+                    </h3>
+                    <ul className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                      {developmentTeam.map((member) => (
+                        <li
+                          key={member}
+                          className="font-medium tracking-[0.01em] text-muted-foreground"
+                        >
+                          {member}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                </div>
                 {nameError ? <p className={dashboardErrorClass}>{nameError}</p> : null}
                 {nameSuccess ? (
                   <p className={`flex items-center gap-2 ${dashboardSuccessClass}`}>
