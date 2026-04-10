@@ -1,3 +1,5 @@
+import { normalizeConfiguredUrl } from "@/lib/app-url";
+
 function readEnv(name: string) {
   const value = process.env[name]?.trim();
   return value ? value : undefined;
@@ -14,12 +16,13 @@ export function getDatabaseUrl() {
 }
 
 export function getAuthBaseUrl() {
-  const vercelUrl = readEnv("VERCEL_URL");
+  const vercelUrl = normalizeConfiguredUrl(readEnv("VERCEL_URL"));
 
   return (
-    readEnv("BETTER_AUTH_URL") ??
-    readEnv("NEXT_PUBLIC_APP_URL") ??
-    (vercelUrl ? `https://${vercelUrl}` : "http://localhost:3000")
+    normalizeConfiguredUrl(readEnv("BETTER_AUTH_URL")) ??
+    normalizeConfiguredUrl(readEnv("NEXT_PUBLIC_APP_URL")) ??
+    vercelUrl ??
+    "http://localhost:3000"
   );
 }
 
