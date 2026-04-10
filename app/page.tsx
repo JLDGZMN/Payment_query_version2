@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react";
 import { authClient } from "@/lib/auth-client";
 import { AuthBackground } from "@/components/auth-background";
 import {
@@ -27,6 +28,8 @@ const authPrimaryButtonClass =
   "h-10 rounded-xl shadow-sm transition-[transform,box-shadow,background-color] duration-200 hover:shadow-md";
 const authGhostButtonClass =
   "h-10 rounded-xl border border-transparent transition-[background-color,border-color,color] duration-200 hover:border-border/40 hover:bg-muted/60";
+const authIconButtonClass =
+  "absolute inset-y-0 right-2 my-auto flex size-8 items-center justify-center rounded-xl text-muted-foreground transition-[background-color,color,box-shadow] duration-200 hover:bg-muted/60 hover:text-foreground hover:shadow-sm";
 
 function SignInCardShell({
   children,
@@ -65,6 +68,7 @@ function SignInPageContent() {
   const searchParams = useSearchParams();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const signupSuccessMessage =
@@ -108,11 +112,12 @@ function SignInPageContent() {
               </p>
             )}
 
-            <div className="flex flex-col gap-1.5">
+            <div className="relative flex flex-col gap-1.5">
               <Label htmlFor="username" className="text-xs font-medium text-foreground/90">
                 Username
               </Label>
-              <Input
+              <div className="relative">
+                <Input
                 id="username"
                 type="text"
                 placeholder="Enter your username"
@@ -129,13 +134,22 @@ function SignInPageContent() {
               </Label>
               <Input
                 id="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={authInputClass}
-                required
-              />
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={`${authInputClass} pr-12`}
+                  required
+                />
+                <button
+                  type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className={authIconButtonClass}
+                  onClick={() => setShowPassword((value) => !value)}
+                >
+                  {showPassword ? <EyeSlashIcon size={18} /> : <EyeIcon size={18} />}
+                </button>
+              </div>
             </div>
 
             {error && (

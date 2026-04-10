@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react";
 import { authClient } from "@/lib/auth-client";
 import {
   getPasswordValidation,
@@ -29,6 +30,8 @@ const authPrimaryButtonClass =
   "h-10 rounded-xl shadow-sm transition-[transform,box-shadow,background-color] duration-200 hover:shadow-md";
 const authGhostButtonClass =
   "h-10 rounded-xl border border-transparent transition-[background-color,border-color,color] duration-200 hover:border-border/40 hover:bg-muted/60";
+const authIconButtonClass =
+  "absolute inset-y-0 right-2 my-auto flex size-8 items-center justify-center rounded-xl text-muted-foreground transition-[background-color,color,box-shadow] duration-200 hover:bg-muted/60 hover:text-foreground hover:shadow-sm";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -37,6 +40,8 @@ export default function SignUpPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const passwordValidation = useMemo(() => getPasswordValidation(password), [password]);
@@ -152,20 +157,30 @@ export default function SignUpPage() {
               <Label htmlFor="password" className="text-xs font-medium text-foreground/90">
                 Password
               </Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Create a password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setError("");
-                }}
-                aria-describedby={error ? "password-requirements signup-error" : "password-requirements"}
-                aria-invalid={password.length > 0 && !passwordValidation.isValid}
-                className={authInputClass}
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Create a password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError("");
+                  }}
+                  aria-describedby={error ? "password-requirements signup-error" : "password-requirements"}
+                  aria-invalid={password.length > 0 && !passwordValidation.isValid}
+                  className={`${authInputClass} pr-12`}
+                  required
+                />
+                <button
+                  type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className={authIconButtonClass}
+                  onClick={() => setShowPassword((value) => !value)}
+                >
+                  {showPassword ? <EyeSlashIcon size={18} /> : <EyeIcon size={18} />}
+                </button>
+              </div>
               <ul
                 id="password-requirements"
                 className="mt-1 space-y-1 rounded-2xl border border-border/50 bg-muted/20 px-3.5 py-3 text-xs"
@@ -194,20 +209,30 @@ export default function SignUpPage() {
               <Label htmlFor="confirmPassword" className="text-xs font-medium text-foreground/90">
                 Confirm Password
               </Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="Confirm your password"
-                value={confirmPassword}
-                onChange={(e) => {
-                  setConfirmPassword(e.target.value);
-                  setError("");
-                }}
-                aria-describedby={error ? "confirm-password-status signup-error" : "confirm-password-status"}
-                aria-invalid={confirmPassword.length > 0 && !passwordsMatch}
-                className={authInputClass}
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Confirm your password"
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setError("");
+                  }}
+                  aria-describedby={error ? "confirm-password-status signup-error" : "confirm-password-status"}
+                  aria-invalid={confirmPassword.length > 0 && !passwordsMatch}
+                  className={`${authInputClass} pr-12`}
+                  required
+                />
+                <button
+                  type="button"
+                  aria-label={showConfirmPassword ? "Hide confirmed password" : "Show confirmed password"}
+                  className={authIconButtonClass}
+                  onClick={() => setShowConfirmPassword((value) => !value)}
+                >
+                  {showConfirmPassword ? <EyeSlashIcon size={18} /> : <EyeIcon size={18} />}
+                </button>
+              </div>
               {confirmPassword ? (
                 <p
                   id="confirm-password-status"
