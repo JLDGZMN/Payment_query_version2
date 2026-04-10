@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckCircleIcon,
@@ -79,11 +79,6 @@ const developmentTeam = [
 export default function ProfilePage() {
   const router = useRouter();
   const { data: session, isPending } = useSession();
-  const [name, setName] = useState("");
-  const [nameLoading, setNameLoading] = useState(false);
-  const [nameSuccess, setNameSuccess] = useState(false);
-  const [nameError, setNameError] = useState("");
-
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -100,11 +95,6 @@ export default function ProfilePage() {
   const username = (session?.user as Record<string, string> | undefined)?.username ?? "";
   const passwordValidation = useMemo(() => getPasswordValidation(newPassword), [newPassword]);
   const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
-  const nameChanged = name.trim() !== "" && name.trim() !== currentName;
-
-  useEffect(() => {
-    setName(currentName);
-  }, [currentName]);
 
   if (isPending) {
     return (
@@ -120,31 +110,6 @@ export default function ProfilePage() {
         </div>
       </SidebarInset>
     );
-  }
-
-  async function handleUpdateName(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setNameError("");
-    setNameSuccess(false);
-
-    if (!nameChanged) {
-      setNameError("Enter a new display name before saving.");
-      return;
-    }
-
-    setNameLoading(true);
-    const { error } = await authClient.updateUser({ name: name.trim() });
-
-    if (error) {
-      const message = error.message ?? "Failed to update name.";
-      setNameError(message);
-      toast.error(message);
-    } else {
-      setNameSuccess(true);
-      toast.success("Display name updated.");
-    }
-
-    setNameLoading(false);
   }
 
   async function handleChangePassword(e: React.FormEvent<HTMLFormElement>) {
@@ -216,8 +181,7 @@ export default function ProfilePage() {
                   <Badge variant="outline" className={dashboardBadgeClass}>Account settings</Badge>
                 </div>
                 <p className="max-w-2xl text-sm text-muted-foreground">
-                  Review your account details, update how your name appears, and keep your
-                  sign-in secure.
+                  Review your account details, see the team credits, and keep your sign-in secure.
                 </p>
               </div>
             </div>
@@ -259,82 +223,36 @@ export default function ProfilePage() {
         </Card>
 
         <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-          <Card className={`h-full ${dashboardCardClass}`}>
-            <form onSubmit={handleUpdateName} className="flex flex-1 flex-col">
-              <CardHeader className="gap-1.5 border-b border-border/50 px-6 pt-6 pb-4">
-                <CardTitle className="text-lg font-semibold tracking-tight">Update display name</CardTitle>
-                <CardDescription className="text-sm leading-relaxed">
-                  This is the name shown across the dashboard and account menus.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 px-6 py-6">
-                <div className="space-y-2">
-                  <Label htmlFor="name" className="text-xs font-medium text-foreground/90">Display name</Label>
-                  <Input
-                    id="name"
-                    type="text"
-                    value={name}
-                    onChange={(e) => {
-                      setName(e.target.value);
-                      setNameError("");
-                      setNameSuccess(false);
-                    }}
-                    disabled={nameLoading}
-                    required
-                    className={dashboardInputClass}
-                  />
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Keep it recognizable so teammates and accounting staff can identify your
-                  requests quickly.
-                </p>
-                {nameError ? <p className={dashboardErrorClass}>{nameError}</p> : null}
-                {nameSuccess ? (
-                  <p className={`flex items-center gap-2 ${dashboardSuccessClass}`}>
-                    <CheckCircleIcon size={16} />
-                    Name updated successfully.
-                  </p>
-                ) : null}
-              </CardContent>
-              <CardFooter className="border-t border-border/50 px-6 pt-4 pb-6">
-                <Button type="submit" className={`w-full sm:w-auto ${dashboardPrimaryButtonClass}`} disabled={nameLoading || !nameChanged}>
-                  {nameLoading ? (
-                    <span className="flex items-center gap-2">
-                      <Spinner className="size-4" />
-                      Saving changes...
-                    </span>
-                  ) : (
-                    "Save name"
-                  )}
-                </Button>
-              </CardFooter>
-            </form>
-            <div className="border-t border-border/50 px-6 pb-6 pt-5">
+          <Card className={`flex h-full flex-col ${dashboardCardClass}`}>
+            <CardContent className="flex flex-1 p-6">
               <section
                 aria-labelledby="development-team-title"
-                className="rounded-2xl border border-border/50 bg-muted/20 px-4 py-5 text-center shadow-sm"
+                className="flex flex-1 flex-col justify-center rounded-2xl border border-border/50 bg-muted/20 px-6 py-8 text-center shadow-sm"
               >
                 <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground/80">
                   System Credits
                 </p>
                 <h3
                   id="development-team-title"
-                  className="mt-2 text-sm font-semibold tracking-[0.08em] text-foreground/90"
+                  className="mt-2 text-base font-semibold tracking-[0.08em] text-foreground/90"
                 >
                   Built by the Development Team
                 </h3>
-                <ul className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
+                  Payment Query was designed and assembled by the team below. This panel now fills the full card area for a cleaner profile layout.
+                </p>
+                <ul className="mt-6 grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
                   {developmentTeam.map((member) => (
                     <li
                       key={member}
-                      className="font-medium tracking-[0.01em] text-muted-foreground"
+                      className="rounded-2xl border border-border/40 bg-background/65 px-4 py-3 font-medium tracking-[0.01em] text-muted-foreground shadow-sm"
                     >
                       {member}
                     </li>
                   ))}
                 </ul>
               </section>
-            </div>
+            </CardContent>
           </Card>
 
           <Card className={`h-full ${dashboardCardClass}`}>
