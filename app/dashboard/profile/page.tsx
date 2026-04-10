@@ -238,14 +238,11 @@ export default function ProfilePage() {
                 >
                   Built by the Development Team
                 </h3>
-                <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-                  Payment Query was designed and assembled by the team below. This panel now fills the full card area for a cleaner profile layout.
-                </p>
                 <ul className="mt-6 grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
                   {developmentTeam.map((member) => (
                     <li
                       key={member}
-                      className="rounded-2xl border border-border/40 bg-background/65 px-4 py-3 font-medium tracking-[0.01em] text-muted-foreground shadow-sm"
+                      className="font-medium tracking-[0.01em] text-muted-foreground"
                     >
                       {member}
                     </li>
