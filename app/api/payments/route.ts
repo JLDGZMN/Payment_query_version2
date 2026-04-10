@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
-import { getAuth } from "@/lib/auth";
+import { getAuth, type Auth } from "@/lib/auth";
 import { getRcdAmountValidationError } from "@/lib/payment-validation";
 import { getServerConfigErrorMessage } from "@/lib/server-env";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
+import { PAYMENT_SELECT_SQL, serializePayment, type PaymentRow } from "./payment-record";
 
 export const runtime = "nodejs";
+type Session = Auth["$Infer"]["Session"];
 
 function getConfigErrorResponse() {
   const error = getServerConfigErrorMessage();
@@ -17,7 +19,7 @@ function getConfigErrorResponse() {
   return NextResponse.json({ error }, { status: 500 });
 }
 
-async function requireSession(request: NextRequest) {
+async function requireSession(request: NextRequest): Promise<Session | null> {
   const session = await getAuth().api.getSession({ headers: request.headers });
   if (!session) return null;
   return session;
@@ -32,14 +34,12 @@ export async function GET(request: NextRequest) {
   }
 
   const pool = getPool();
-  const [rows] = await pool.execute<RowDataPacket[]>(
-    "SELECT * FROM `payments` ORDER BY `or_date` DESC, `id` DESC"
+  const [rows] = await pool.execute<PaymentRow[]>(
+    `${PAYMENT_SELECT_SQL}
+     ORDER BY p.or_date DESC, p.id DESC`
   );
 
-  const payments = rows.map((r) => ({
-    ...r,
-    rcd_amount: Number(r.rcd_amount),
-  }));
+  const payments = rows.map(serializePayment);
 
   return NextResponse.json(payments);
 }
@@ -48,7 +48,8 @@ export async function POST(request: NextRequest) {
   const configError = getConfigErrorResponse();
   if (configError) return configError;
 
-  if (!await requireSession(request)) {
+  const session = await requireSession(request);
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -88,15 +89,16 @@ export async function POST(request: NextRequest) {
   }
 
   const [result] = await pool.execute<ResultSetHeader>(
-    "INSERT INTO `payments` (`or_date`, `or_no_start`, `or_no_end`, `pieces`, `rcd_amount`, `collector`) VALUES (?, ?, ?, ?, ?, ?)",
-    [or_date, or_no_start, or_no_end, pieces, rcd_amount, collector]
+    "INSERT INTO `payments` (`or_date`, `or_no_start`, `or_no_end`, `pieces`, `rcd_amount`, `collector`, `created_by_user_id`, `updated_by_user_id`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    [or_date, or_no_start, or_no_end, pieces, rcd_amount, collector, session.user.id, session.user.id]
   );
 
-  const [rows] = await pool.execute<RowDataPacket[]>(
-    "SELECT * FROM `payments` WHERE `id` = ?",
+  const [rows] = await pool.execute<PaymentRow[]>(
+    `${PAYMENT_SELECT_SQL}
+     WHERE p.id = ?`,
     [result.insertId]
   );
 
   const row = rows[0];
-  return NextResponse.json({ ...row, rcd_amount: Number(row.rcd_amount) }, { status: 201 });
+  return NextResponse.json(serializePayment(row), { status: 201 });
 }

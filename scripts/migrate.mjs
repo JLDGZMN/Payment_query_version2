@@ -73,9 +73,15 @@ CREATE TABLE IF NOT EXISTS \`payments\` (
   \`pieces\`      INT UNSIGNED   NOT NULL,
   \`rcd_amount\`  DECIMAL(12,2)  NOT NULL,
   \`collector\`   VARCHAR(255)   NOT NULL,
+  \`created_by_user_id\` VARCHAR(36),
+  \`updated_by_user_id\` VARCHAR(36),
   \`created_at\`  DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
   \`updated_at\`  DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (\`id\`)
+  PRIMARY KEY (\`id\`),
+  CONSTRAINT \`payments_created_by_user_fk\`
+    FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`user\`(\`id\`) ON DELETE SET NULL,
+  CONSTRAINT \`payments_updated_by_user_fk\`
+    FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`user\`(\`id\`) ON DELETE SET NULL
 );
 `;
 
@@ -83,6 +89,21 @@ CREATE TABLE IF NOT EXISTS \`payments\` (
 const alterations = [
   ["user", "username",        "VARCHAR(255) UNIQUE"],
   ["user", "displayUsername", "VARCHAR(255)"],
+  ["payments", "created_by_user_id", "VARCHAR(36) NULL"],
+  ["payments", "updated_by_user_id", "VARCHAR(36) NULL"],
+];
+
+const constraints = [
+  [
+    "payments",
+    "payments_created_by_user_fk",
+    "FOREIGN KEY (`created_by_user_id`) REFERENCES `user`(`id`) ON DELETE SET NULL",
+  ],
+  [
+    "payments",
+    "payments_updated_by_user_fk",
+    "FOREIGN KEY (`updated_by_user_id`) REFERENCES `user`(`id`) ON DELETE SET NULL",
+  ],
 ];
 
 async function columnExists(conn, table, column) {
@@ -91,6 +112,16 @@ async function columnExists(conn, table, column) {
     `SELECT 1 FROM information_schema.COLUMNS
      WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
     [db, table, column]
+  );
+  return rows.length > 0;
+}
+
+async function constraintExists(conn, table, constraint) {
+  const db = process.env.DATABASE_URL.split("/").pop().split("?")[0];
+  const [rows] = await conn.query(
+    `SELECT 1 FROM information_schema.TABLE_CONSTRAINTS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND CONSTRAINT_NAME = ?`,
+    [db, table, constraint]
   );
   return rows.length > 0;
 }
@@ -108,6 +139,13 @@ try {
     if (!(await columnExists(conn, table, column))) {
       await conn.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`);
       console.log(`✓ Added column "${column}" to "${table}"`);
+    }
+  }
+
+  for (const [table, constraint, definition] of constraints) {
+    if (!(await constraintExists(conn, table, constraint))) {
+      await conn.query(`ALTER TABLE \`${table}\` ADD CONSTRAINT \`${constraint}\` ${definition}`);
+      console.log(`Added constraint "${constraint}" to "${table}"`);
     }
   }
 

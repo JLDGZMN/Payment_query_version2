@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import {
   PencilSimpleIcon,
+  InfoIcon,
   CreditCardIcon,
   ReceiptIcon,
   UsersIcon,
@@ -102,6 +103,12 @@ interface Payment {
   collector: string;
   created_at: string;
   updated_at: string;
+  created_by_user_id: string | null;
+  updated_by_user_id: string | null;
+  created_by_name: string | null;
+  created_by_username: string | null;
+  updated_by_name: string | null;
+  updated_by_username: string | null;
 }
 
 const emptyForm = {
@@ -185,6 +192,28 @@ function toLocalDateString(value: string) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+function getAuditUserLabel(name?: string | null, username?: string | null, userId?: string | null) {
+  const label = [name, username, userId].find((value) => typeof value === "string" && value.trim().length > 0);
+  return label ?? "Not available";
+}
+
+function getDisplayValue(value?: string | null) {
+  if (!value) return "Not available";
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : "Not available";
+}
+
+function formatAuditTimestamp(value?: string | null) {
+  if (!value) return "Not available";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "Not available";
+  }
+
+  return format(date, "MMM dd, yyyy hh:mm a");
+}
+
 export default function PaymentsPage() {
   const todayDate = useMemo(() => getTodayDateString(), []);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -198,6 +227,7 @@ export default function PaymentsPage() {
   const [editError, setEditError] = useState<string | null>(null);
   const [editFieldErrors, setEditFieldErrors] = useState<FormErrors>({});
   const [deleteRow, setDeleteRow] = useState<Payment | null>(null);
+  const [auditRow, setAuditRow] = useState<Payment | null>(null);
 
   const [passwordPromptRow, setPasswordPromptRow] = useState<Payment | null>(null);
   const [passwordInput, setPasswordInput] = useState("");
@@ -488,6 +518,14 @@ export default function PaymentsPage() {
         header: "Actions",
         cell: ({ row }) => (
           <div className="flex gap-1">
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              onClick={() => setAuditRow(row.original)}
+              className={dashboardIconButtonClass}
+            >
+              <InfoIcon />
+            </Button>
             <Button size="icon-sm" variant="ghost" onClick={() => {
               setPasswordPromptRow(row.original);
               setPasswordInput("");
@@ -872,6 +910,80 @@ export default function PaymentsPage() {
           </div>
         </div>
       </div>
+
+      {/* Audit History */}
+      <Dialog open={!!auditRow} onOpenChange={(open) => !open && setAuditRow(null)}>
+        <DialogContent className={`sm:max-w-lg ${dashboardDialogClass}`}>
+          <DialogHeader className="gap-1.5">
+            <DialogTitle className="text-base font-semibold tracking-tight">Payment Audit History</DialogTitle>
+          </DialogHeader>
+          {auditRow ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs font-medium text-foreground/90">Encoded by</Label>
+                <Input
+                  readOnly
+                  value={getAuditUserLabel(
+                    auditRow.created_by_name,
+                    auditRow.created_by_username,
+                    auditRow.created_by_user_id
+                  )}
+                  className={dashboardReadOnlyInputClass}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs font-medium text-foreground/90">User ID</Label>
+                <Input
+                  readOnly
+                  value={getDisplayValue(auditRow.created_by_user_id)}
+                  className={dashboardReadOnlyInputClass}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs font-medium text-foreground/90">Created at</Label>
+                <Input
+                  readOnly
+                  value={formatAuditTimestamp(auditRow.created_at)}
+                  className={dashboardReadOnlyInputClass}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs font-medium text-foreground/90">Last updated at</Label>
+                <Input
+                  readOnly
+                  value={formatAuditTimestamp(auditRow.updated_at)}
+                  className={dashboardReadOnlyInputClass}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs font-medium text-foreground/90">Last updated by</Label>
+                <Input
+                  readOnly
+                  value={getAuditUserLabel(
+                    auditRow.updated_by_name,
+                    auditRow.updated_by_username,
+                    auditRow.updated_by_user_id
+                  )}
+                  className={dashboardReadOnlyInputClass}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs font-medium text-foreground/90">Last updater ID</Label>
+                <Input
+                  readOnly
+                  value={getDisplayValue(auditRow.updated_by_user_id)}
+                  className={dashboardReadOnlyInputClass}
+                />
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter className="mt-1 gap-2">
+            <Button variant="ghost" className={dashboardGhostButtonClass} onClick={() => setAuditRow(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Password Prompt */}
       <Dialog open={!!passwordPromptRow} onOpenChange={(o) => { if (!o) { setPasswordPromptRow(null); setPasswordInput(""); setPasswordError(null); } }}>
