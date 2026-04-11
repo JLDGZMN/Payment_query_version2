@@ -1,11 +1,12 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react";
-import { authClient } from "@/lib/auth-client";
 import { AuthBackground } from "@/components/auth-background";
+import { authClient } from "@/lib/auth-client";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -15,7 +16,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
 const AUTH_FLASH_KEY = "auth-flash";
@@ -74,7 +74,7 @@ function SignInPageContent() {
   const signupSuccessMessage =
     searchParams.get("signup") === "success"
       ? searchParams.get("username")?.trim()
-        ? `Account created successfully! You can sign in now.`
+        ? "Account created successfully! You can sign in now."
         : "Account created successfully. You can sign in now."
       : "";
 
@@ -92,10 +92,7 @@ function SignInPageContent() {
       setError(error.message ?? "Sign in failed");
     } else {
       window.sessionStorage.setItem(AUTH_FLASH_KEY, "login-success");
-      window.sessionStorage.setItem(
-        AUTH_FLASH_USERNAME_KEY,
-        username.trim()
-      );
+      window.sessionStorage.setItem(AUTH_FLASH_USERNAME_KEY, username.trim());
       router.push(searchParams.get("redirect") ?? "/dashboard");
     }
 
@@ -104,70 +101,70 @@ function SignInPageContent() {
 
   return (
     <SignInCardShell>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="flex flex-col gap-4 px-6 py-5">
-            {signupSuccessMessage && (
-              <p className="rounded-xl border border-emerald-200/80 bg-emerald-50/80 px-3.5 py-3 text-xs leading-relaxed text-emerald-800 shadow-sm dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-100">
-                {signupSuccessMessage}
-              </p>
-            )}
+      <form onSubmit={handleSubmit}>
+        <CardContent className="flex flex-col gap-4 px-6 py-5">
+          {signupSuccessMessage && (
+            <p className="rounded-xl border border-emerald-200/80 bg-emerald-50/80 px-3.5 py-3 text-xs leading-relaxed text-emerald-800 shadow-sm dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-100">
+              {signupSuccessMessage}
+            </p>
+          )}
 
-            <div className="relative flex flex-col gap-1.5">
-              <Label htmlFor="username" className="text-xs font-medium text-foreground/90">
-                Username
-              </Label>
-              <div className="relative">
-                <Input
-                id="username"
-                type="text"
-                placeholder="Enter your username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className={authInputClass}
-                required
-              />
-            </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="username" className="text-xs font-medium text-foreground/90">
+              Username
+            </Label>
+            <Input
+              id="username"
+              type="text"
+              placeholder="Enter your username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className={authInputClass}
+              required
+            />
+          </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="password" className="text-xs font-medium text-foreground/90">
-                Password
-              </Label>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="password" className="text-xs font-medium text-foreground/90">
+              Password
+            </Label>
+            <div className="relative">
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={`${authInputClass} pr-12`}
-                  required
-                />
-                <button
-                  type="button"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  className={authIconButtonClass}
-                  onClick={() => setShowPassword((value) => !value)}
-                >
-                  {showPassword ? <EyeSlashIcon size={18} /> : <EyeIcon size={18} />}
-                </button>
-              </div>
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={`${authInputClass} pr-12`}
+                required
+              />
+              <button
+                type="button"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                className={authIconButtonClass}
+                onClick={() => setShowPassword((value) => !value)}
+              >
+                {showPassword ? <EyeIcon size={18} /> : <EyeSlashIcon size={18} />}
+              </button>
             </div>
+          </div>
 
-            {error && (
-              <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-3 text-xs leading-relaxed text-destructive">
-                {error}
-              </p>
-            )}
-          </CardContent>
+          {error && (
+            <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-3 text-xs leading-relaxed text-destructive">
+              {error}
+            </p>
+          )}
+        </CardContent>
 
-          <CardFooter className="flex flex-col gap-3 border-t border-border/50 px-6 pt-4 pb-6">
-            <Button type="submit" className={`w-full ${authPrimaryButtonClass}`} disabled={loading}>
-              {loading ? "Please wait..." : "Sign In"}
-            </Button>
-            <Button type="button" variant="ghost" className={`w-full ${authGhostButtonClass}`} asChild>
-              <Link href="/signup">Don&apos;t have an account? Sign Up</Link>
-            </Button>
-          </CardFooter>
-        </form>
+        <CardFooter className="flex flex-col gap-3 border-t border-border/50 px-6 pt-4 pb-6">
+          <Button type="submit" className={`w-full ${authPrimaryButtonClass}`} disabled={loading}>
+            {loading ? "Please wait..." : "Sign In"}
+          </Button>
+          <Button type="button" variant="ghost" className={`w-full ${authGhostButtonClass}`} asChild>
+            <Link href="/signup">Don&apos;t have an account? Sign Up</Link>
+          </Button>
+        </CardFooter>
+      </form>
     </SignInCardShell>
   );
 }
