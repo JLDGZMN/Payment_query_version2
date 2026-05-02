@@ -162,16 +162,38 @@ function sanitizeDigits(value: string, maxLength = OR_DIGITS) {
 }
 
 function sanitizeRcdAmountInput(value: string) {
-  const sanitized = value.replace(/[^0-9.]/g, "");
+  const sanitized = value.replace(/,/g, "").replace(/[^0-9.]/g, "");
+  if (!sanitized) return "";
+
   const [rawWholePart = "", ...rawDecimalParts] = sanitized.split(".");
-  const wholePart = rawWholePart.slice(0, RCD_AMOUNT_INTEGER_DIGITS);
+  const wholePart = rawWholePart
+    .slice(0, RCD_AMOUNT_INTEGER_DIGITS)
+    .replace(/^0+(?=\d)/, "");
   const decimalPart = rawDecimalParts.join("").slice(0, RCD_AMOUNT_SCALE);
+  const normalizedWholePart = wholePart || (sanitized.includes(".") ? "0" : "");
 
   if (sanitized.includes(".")) {
-    return `${wholePart}.${decimalPart}`;
+    return `${normalizedWholePart}.${decimalPart}`;
   }
 
-  return wholePart;
+  return normalizedWholePart;
+}
+
+function formatRcdAmountDisplay(value: string) {
+  if (!value) return "";
+
+  const [wholePart = "", decimalPart = ""] = value.split(".");
+  const formattedWholePart = wholePart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+  if (value.includes(".")) {
+    return `${formattedWholePart}.${decimalPart}`;
+  }
+
+  return formattedWholePart;
+}
+
+function normalizeRcdAmountValue(value: string) {
+  return value.replace(/,/g, "");
 }
 
 function isExactOrNumber(value: string) {
@@ -397,7 +419,11 @@ export default function PaymentsPage() {
     const res = await fetch("/api/payments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, pieces: Number(form.pieces), rcd_amount: Number(form.rcd_amount) }),
+      body: JSON.stringify({
+        ...form,
+        pieces: Number(form.pieces),
+        rcd_amount: Number(normalizeRcdAmountValue(form.rcd_amount)),
+      }),
     });
     if (res.ok) {
       const created: Payment = await res.json();
@@ -441,7 +467,11 @@ export default function PaymentsPage() {
     const res = await fetch(`/api/payments/${editRow.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...editForm, pieces: Number(editForm.pieces), rcd_amount: Number(editForm.rcd_amount) }),
+      body: JSON.stringify({
+        ...editForm,
+        pieces: Number(editForm.pieces),
+        rcd_amount: Number(normalizeRcdAmountValue(editForm.rcd_amount)),
+      }),
     });
     if (res.ok) {
       const updated: Payment = await res.json();
@@ -706,11 +736,16 @@ export default function PaymentsPage() {
           </div>
           <div className="flex flex-col gap-1">
             <Label className="text-xs font-medium text-foreground/90">RCD Amount</Label>
-            <Input type="text" inputMode="decimal" className={`w-32 ${dashboardInputClass}`} value={form.rcd_amount}
+            <Input
+              type="text"
+              inputMode="decimal"
+              className={`w-32 ${dashboardInputClass}`}
+              value={formatRcdAmountDisplay(form.rcd_amount)}
               onChange={(e) => {
                 const val = sanitizeRcdAmountInput(e.target.value);
                 setForm((f) => ({ ...f, rcd_amount: val }));
-              }} />
+              }}
+            />
           </div>
           <div className="flex flex-col gap-1">
             <Label className="text-xs font-medium text-foreground/90">Collector</Label>
@@ -1081,13 +1116,18 @@ export default function PaymentsPage() {
               </div>
               <div className="flex flex-col gap-1">
                 <Label className="text-xs font-medium text-foreground/90">RCD Amount</Label>
-                <Input type="text" inputMode="decimal" className={dashboardInputClass} value={editForm.rcd_amount}
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  className={dashboardInputClass}
+                  value={formatRcdAmountDisplay(editForm.rcd_amount)}
                   onChange={(e) => {
                     const val = sanitizeRcdAmountInput(e.target.value);
                     setEditError(null);
                     setEditFieldErrors({});
                     setEditForm((f) => ({ ...f, rcd_amount: val }));
-                  }} />
+                  }}
+                />
               </div>
             </div>
             <div className="flex flex-col gap-1">

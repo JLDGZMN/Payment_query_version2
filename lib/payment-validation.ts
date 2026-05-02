@@ -4,7 +4,7 @@ export const MAX_RCD_AMOUNT_DISPLAY = "9,999,999,999.99";
 
 function normalizeNumericString(value: unknown) {
   if (typeof value === "number") return String(value);
-  if (typeof value === "string") return value.trim();
+  if (typeof value === "string") return value.trim().replace(/,/g, "");
   return "";
 }
 
