@@ -38,11 +38,6 @@ export function AuthFlashToast() {
       window.sessionStorage.removeItem(AUTH_FLASH_USERNAME_KEY);
     }
 
-    if (flash === "logout-timeout" && pathname === "/") {
-      toast.warning("You were logged out after 30 minutes of inactivity.");
-      window.sessionStorage.removeItem(AUTH_FLASH_KEY);
-      window.sessionStorage.removeItem(AUTH_FLASH_USERNAME_KEY);
-    }
   }, [pathname]);
 
   return null;
