@@ -86,6 +86,7 @@ const COLLECTORS = [
 ];
 
 const PAGE_SIZE = 10;
+const AUTO_REFRESH_INTERVAL_MS = 5_000;
 const OR_DIGITS = 7;
 const OR_MAX = 9_999_999;
 const PIECES_UI_DIGITS = 4;
@@ -268,6 +269,14 @@ export default function PaymentsPage() {
   const [lockedColumnWidths, setLockedColumnWidths] = useState<Partial<Record<string, string>>>({});
 
   useEffect(() => { fetchPayments(); }, []);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      void fetchPayments();
+    }, AUTO_REFRESH_INTERVAL_MS);
+
+    return () => window.clearInterval(interval);
+  }, []);
 
   useLayoutEffect(() => {
     if (payments.length === 0 || Object.keys(lockedColumnWidths).length > 0) return;
