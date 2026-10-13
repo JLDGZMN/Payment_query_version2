@@ -73,6 +73,9 @@ CREATE TABLE IF NOT EXISTS \`payments\` (
   \`pieces\`      INT UNSIGNED   NOT NULL,
   \`rcd_amount\`  DECIMAL(12,2)  NOT NULL,
   \`collector\`   VARCHAR(255)   NOT NULL,
+  \`status\` ENUM('Active', 'Void') NOT NULL DEFAULT 'Active',
+  \`voided_at\` DATETIME NULL,
+  \`voided_by_user_id\` VARCHAR(36) NULL,
   \`created_by_user_id\` VARCHAR(36),
   \`updated_by_user_id\` VARCHAR(36),
   \`created_at\`  DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -87,6 +90,9 @@ CREATE TABLE IF NOT EXISTS \`payments\` (
 
 // Columns to ensure exist on already-created tables: [table, column, definition]
 const alterations = [
+  ["payments", "status", "ENUM('Active', 'Void') NOT NULL DEFAULT 'Active'"],
+  ["payments", "voided_at", "DATETIME NULL"],
+  ["payments", "voided_by_user_id", "VARCHAR(36) NULL"],
   ["user", "username",        "VARCHAR(255) UNIQUE"],
   ["user", "displayUsername", "VARCHAR(255)"],
   ["payments", "created_by_user_id", "VARCHAR(36) NULL"],
@@ -94,6 +100,7 @@ const alterations = [
 ];
 
 const constraints = [
+  ["payments", "payments_voided_by_user_fk", "FOREIGN KEY (`voided_by_user_id`) REFERENCES `user`(`id`) ON DELETE SET NULL"],
   [
     "payments",
     "payments_created_by_user_fk",

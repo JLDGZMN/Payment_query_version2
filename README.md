@@ -8,7 +8,7 @@ A web-based payment record management system built with Next.js 16, better-auth,
 
 - **Authentication** — Username + password sign-in and sign-up powered by better-auth
 - **Protected Routes** — Proxy-based middleware redirects unauthenticated users to sign-in
-- **Payments CRUD** — Insert, edit, and delete O.R. payment records
+- **Payments CRUD** — Insert, edit, and void O.R. payment records
 - **Auto-calculated O.R. End** — O.R. No. End is auto-filled from Start + Pieces − 1
 - **TanStack Table** — Filterable, paginated data table with column-based filtering
 - **Dashboard Stats** — Live stats: Total RCD Amount, Total Pieces, Today's RCD, Active Collectors
@@ -275,3 +275,19 @@ Click **Deploy** on Vercel. Your app will be live at `https://your-app.vercel.ap
 ## License
 
 MIT
+
+## O.R. editing and voiding
+
+After insertion, O.R. start/end numbers and pieces are read-only. Only O.R. date, RCD amount, and collector can be edited. To correct numbers or pieces, void the original entry and insert a replacement.
+
+Open Edit in the Payments table and use the Void button inside the edit dialog. The main table shows active records. Use Void History at the far right of the Filter by container to view preserved voided entries with a Void badge and audit details, including who voided the entry and when. Voided entries are excluded from active totals and cannot be edited. Voided ranges do not block replacement entries.
+
+Run `node scripts/migrate.mjs` before using this version to add status and void audit columns to existing databases. Permanent deletion is disabled; the API uses `PATCH /api/payments/:id` with `{ "status": "Void" }` for voiding.
+
+## Printing collection and void reports
+
+In Payments, click Print Report beside Void History. Choose Report Type, From and To dates, and optionally a collector, then click Preview Report. Collection Report is selected by default and uses O.R. dates to include active records. Void Report uses the date voided in Philippine time and includes voided records with their original O.R. details, Void status, voided timestamp, and voided-by name. Its totals are labeled Voided records, Voided pieces, and Voided amount, separately from collections. Report selections are independent of the main table filters and pagination. Both dates are included, and every matching record is included in date order.
+
+The preview displays a complete scrollable white page with a consistent table, totals directly below it, and prepared-by details and signature line at the bottom. It captures a snapshot when Preview Report is clicked; subsequent refreshes do not change that preview. Changing report type, dates, or collector clears the old preview. Click Preview Report again to capture updated data.
+
+Choose Print / Save as PDF to open the browser print dialog. The report uses A4 landscape, repeats column headings on pages containing receipt rows, and hides application controls. Printing uses a separate copy of the same report content, so scrolling the preview does not clip printed pages. Totals and the signature area stay together where possible. Browser-added date/title/URL labels can be disabled using More settings ? Headers and footers. Collection reports exclude voided records; void reports include only voided records. Both dates are required, reversed ranges are rejected, and empty reports cannot be printed.

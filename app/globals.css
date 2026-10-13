@@ -127,3 +127,59 @@
     @apply font-sans;
   }
 }
+
+.payment-report-print {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 12mm;
+  }
+
+  html:has(.payment-report-print),
+  body:has(.payment-report-print) {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  body:has(.payment-report-print) > :not(.payment-report-print) {
+    display: none !important;
+  }
+
+  .payment-report-print {
+    display: block !important;
+    position: static;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: white;
+    color: black;
+    font-size: 10pt;
+  }
+
+  .payment-report-print .report-page {
+    display: block;
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+    padding: 0 !important;
+    margin: 0;
+    box-shadow: none;
+  }
+
+  .payment-report-print .report-table { width: 100%; table-layout: fixed; }
+  .payment-report-print thead { display: table-header-group; }
+  .payment-report-print .report-ending { display: block; }
+  .payment-report-print tr,
+  .payment-report-print .report-heading,
+  .payment-report-print .report-ending { break-inside: avoid; }
+  .payment-report-print .report-signature { margin-top: 12mm; padding-top: 0; }
+  .payment-report-print th, .payment-report-print td { border-color: #888 !important; }
+}

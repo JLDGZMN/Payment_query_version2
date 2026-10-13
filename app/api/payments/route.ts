@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
 
   const [conflicts] = await pool.execute<RowDataPacket[]>(
     `SELECT id, or_no_start, or_no_end FROM payments
-     WHERE CAST(or_no_start AS UNSIGNED) <= CAST(? AS UNSIGNED)
+     WHERE status = 'Active' AND CAST(or_no_start AS UNSIGNED) <= CAST(? AS UNSIGNED)
        AND CAST(or_no_end   AS UNSIGNED) >= CAST(? AS UNSIGNED)
      LIMIT 1`,
     [end, start]

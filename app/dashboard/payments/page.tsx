@@ -72,18 +72,10 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { getRcdAmountValidationError } from "@/lib/payment-validation";
-
-const COLLECTORS = [
-  "Lydinar Dastas",
-  "Julio De Guzman",
-  "Ivy Callope",
-  "Carla Buganan",
-  "Lacel Centeno",
-  "Rizza Rovira",
-  "Baby Jane De Jesus",
-  
-];
+import { Badge } from "@/components/ui/badge";
+import { PaymentReportDialog } from "@/components/payment-report-dialog";
+import { useSession } from "@/lib/auth-client";
+import { COLLECTORS, getRcdAmountValidationError } from "@/lib/payment-validation";
 
 const PAGE_SIZE = 10;
 const AUTO_REFRESH_INTERVAL_MS = 5_000;
@@ -102,6 +94,11 @@ interface Payment {
   pieces: number;
   rcd_amount: number;
   collector: string;
+  status: "Active" | "Void";
+  voided_at: string | null;
+  voided_by_user_id: string | null;
+  voided_by_name: string | null;
+  voided_by_username: string | null;
   created_at: string;
   updated_at: string;
   created_by_user_id: string | null;
@@ -238,6 +235,8 @@ function formatAuditTimestamp(value?: string | null) {
 }
 
 export default function PaymentsPage() {
+  const { data: session } = useSession();
+  const [reportOpen, setReportOpen] = useState(false);
   const todayDate = useMemo(() => getTodayDateString(), []);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [form, setForm] = useState(emptyForm);
@@ -249,7 +248,9 @@ export default function PaymentsPage() {
   const [editForm, setEditForm] = useState(emptyForm);
   const [editError, setEditError] = useState<string | null>(null);
   const [editFieldErrors, setEditFieldErrors] = useState<FormErrors>({});
-  const [deleteRow, setDeleteRow] = useState<Payment | null>(null);
+  const [voidLoading, setVoidLoading] = useState(false);
+  const [voidRow, setVoidRow] = useState<Payment | null>(null);
+  const [voidHistoryOpen, setVoidHistoryOpen] = useState(false);
   const [auditRow, setAuditRow] = useState<Payment | null>(null);
 
   const [passwordPromptRow, setPasswordPromptRow] = useState<Payment | null>(null);
@@ -389,7 +390,7 @@ export default function PaymentsPage() {
 
     if (!fieldErrors.or_no_start && !fieldErrors.or_no_end && values.or_no_start && values.or_no_end) {
       const overlappingPayment = payments.find((payment) => {
-        if (ignoreId && payment.id === ignoreId) return false;
+        if (payment.status === "Void" || (ignoreId && payment.id === ignoreId)) return false;
 
         const existingStart = Number(payment.or_no_start);
         const existingEnd = Number(payment.or_no_end);
@@ -477,8 +478,8 @@ export default function PaymentsPage() {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ...editForm,
-        pieces: Number(editForm.pieces),
+        or_date: editForm.or_date,
+        collector: editForm.collector,
         rcd_amount: Number(normalizeRcdAmountValue(editForm.rcd_amount)),
       }),
     });
@@ -511,15 +512,25 @@ export default function PaymentsPage() {
     }
   }
 
-  async function handleDelete() {
-    if (!deleteRow) return;
-    const res = await fetch(`/api/payments/${deleteRow.id}`, { method: "DELETE" });
-    if (res.ok) {
-      setPayments((prev) => prev.filter((p) => p.id !== deleteRow.id));
-      toast.warning("Payment record deleted.");
-      setDeleteRow(null);
-    } else {
-      toast.error("Failed to delete record.");
+  async function handleVoid() {
+    if (!voidRow || voidLoading) return;
+    setVoidLoading(true);
+    try {
+      const res = await fetch(`/api/payments/${voidRow.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "Void" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to void record.");
+      setPayments((prev) => prev.map((payment) => payment.id === data.id ? data : payment));
+      setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+      toast.warning("Payment record voided.");
+      setVoidRow(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to void record.");
+    } finally {
+      setVoidLoading(false);
     }
   }
 
@@ -560,12 +571,14 @@ export default function PaymentsPage() {
             <Button
               size="icon-sm"
               variant="ghost"
+              aria-label="View payment audit"
+              title="View payment audit"
               onClick={() => setAuditRow(row.original)}
               className={dashboardIconButtonClass}
             >
               <InfoIcon />
             </Button>
-            <Button size="icon-sm" variant="ghost" onClick={() => {
+            <Button size="icon-sm" variant="ghost" aria-label="Edit payment" title="Edit payment" disabled={row.original.status === "Void"} onClick={() => {
               setPasswordPromptRow(row.original);
               setPasswordInput("");
               setPasswordError(null);
@@ -579,8 +592,11 @@ export default function PaymentsPage() {
     []
   );
 
+  const activePayments = useMemo(() => payments.filter((payment) => payment.status === "Active"), [payments]);
+  const voidedPayments = useMemo(() => payments.filter((payment) => payment.status === "Void"), [payments]);
+
   const table = useReactTable({
-    data: payments,
+    data: activePayments,
     columns,
     state: { columnFilters, pagination },
     onColumnFiltersChange: setColumnFilters,
@@ -629,8 +645,13 @@ export default function PaymentsPage() {
   }
 
   function handleDateRangeSearch() {
+    if (pendingDateRangeFilter.start && pendingDateRangeFilter.end && pendingDateRangeFilter.start > pendingDateRangeFilter.end) {
+      toast.error("Start date must be on or before the end date.");
+      return;
+    }
     applyFilter("or_date", pendingDateRangeFilter);
   }
+
 
   return (
     <SidebarInset>
@@ -649,18 +670,18 @@ export default function PaymentsPage() {
 
         {/* Stats */}
         {(() => {
-          const totalRCD = payments.reduce((sum, p) => sum + Number(p.rcd_amount), 0);
-          const totalPieces = payments.reduce((sum, p) => sum + Number(p.pieces), 0);
-          const uniqueCollectors = new Set(payments.map((p) => p.collector)).size;
+          const totalRCD = activePayments.reduce((sum, p) => sum + Number(p.rcd_amount), 0);
+          const totalPieces = activePayments.reduce((sum, p) => sum + Number(p.pieces), 0);
+          const uniqueCollectors = new Set(activePayments.map((p) => p.collector)).size;
           const isFiltered = columnFilters.length > 0;
-          const filteredRows = table.getFilteredRowModel().rows;
+          const filteredRows = table.getFilteredRowModel().rows.filter((row) => row.original.status === "Active");
           const filteredRCD = filteredRows.reduce((sum, r) => sum + Number(r.original.rcd_amount), 0);
 
           const stats = [
             {
               label: "Total RCD Amount",
               value: totalRCD.toLocaleString("en-PH", { style: "currency", currency: "PHP" }),
-              description: `${payments.length} record${payments.length !== 1 ? "s" : ""} total`,
+              description: `${activePayments.length} active record${activePayments.length !== 1 ? "s" : ""}`,
               icon: CreditCardIcon,
             },
             {
@@ -675,7 +696,7 @@ export default function PaymentsPage() {
                 ? filteredRCD.toLocaleString("en-PH", { style: "currency", currency: "PHP" })
                 : "—",
               description: isFiltered
-                ? `${filteredRows.length} filtered record${filteredRows.length !== 1 ? "s" : ""}`
+                ? `${filteredRows.length} active filtered record${filteredRows.length !== 1 ? "s" : ""}`
                 : "Apply a filter to see total",
               icon: ReceiptIcon,
             },
@@ -880,6 +901,14 @@ export default function PaymentsPage() {
               Clear
             </Button>
           )}
+          <div className="ml-auto flex flex-wrap gap-3">
+            <Button type="button" className={dashboardPrimaryButtonClass} onClick={() => setReportOpen(true)} disabled={!session}>
+              Print Report
+            </Button>
+            <Button type="button" className={dashboardPrimaryButtonClass} onClick={() => setVoidHistoryOpen(true)}>
+              Void History
+            </Button>
+          </div>
         </div>
 
         {/* Table */}
@@ -955,6 +984,55 @@ export default function PaymentsPage() {
         </div>
       </div>
 
+      {reportOpen && <PaymentReportDialog payments={payments} preparedBy={session?.user.name || "Not available"} onClose={() => setReportOpen(false)} />}
+
+      {/* Void History */}
+      <Dialog open={voidHistoryOpen} onOpenChange={setVoidHistoryOpen}>
+        <DialogContent className={`w-[calc(100%-2rem)] max-w-6xl sm:max-w-6xl ${dashboardDialogClass}`}>
+          <DialogHeader className="gap-1.5">
+            <DialogTitle className="text-base font-semibold tracking-tight">Void History</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Voided O.R. records are preserved for audit viewing and excluded from active totals.</p>
+          <div className="max-h-[60vh] overflow-auto rounded-xl border border-border/60">
+            <Table className="whitespace-nowrap text-sm">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>O.R. Date</TableHead>
+                  <TableHead>O.R. No. Start</TableHead>
+                  <TableHead>O.R. No. End</TableHead>
+                  <TableHead>Pieces</TableHead>
+                  <TableHead>RCD Amount</TableHead>
+                  <TableHead>Collector</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Voided at</TableHead>
+                  <TableHead>Voided by</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {voidedPayments.length === 0 ? (
+                  <TableRow><TableCell colSpan={9} className="h-24 text-center text-muted-foreground">No voided O.R. records.</TableCell></TableRow>
+                ) : voidedPayments.map((payment) => (
+                  <TableRow key={payment.id}>
+                    <TableCell>{format(new Date(payment.or_date), "MM/dd/yyyy")}</TableCell>
+                    <TableCell>{payment.or_no_start}</TableCell>
+                    <TableCell>{payment.or_no_end}</TableCell>
+                    <TableCell>{payment.pieces}</TableCell>
+                    <TableCell>{Number(payment.rcd_amount).toLocaleString("en-PH", { style: "currency", currency: "PHP" })}</TableCell>
+                    <TableCell>{payment.collector}</TableCell>
+                    <TableCell><Badge variant="destructive">Void</Badge></TableCell>
+                    <TableCell>{formatAuditTimestamp(payment.voided_at)}</TableCell>
+                    <TableCell>{getAuditUserLabel(payment.voided_by_name, payment.voided_by_username, payment.voided_by_user_id)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <DialogFooter className="mt-1 gap-2">
+            <Button variant="ghost" className={dashboardGhostButtonClass} onClick={() => setVoidHistoryOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Audit History */}
       <Dialog open={!!auditRow} onOpenChange={(open) => !open && setAuditRow(null)}>
         <DialogContent className={`sm:max-w-lg ${dashboardDialogClass}`}>
@@ -963,6 +1041,16 @@ export default function PaymentsPage() {
           </DialogHeader>
           {auditRow ? (
             <div className="grid gap-3 sm:grid-cols-2">
+              {auditRow.status === "Void" && <>
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs font-medium text-foreground/90">Voided at</Label>
+                  <Input readOnly value={formatAuditTimestamp(auditRow.voided_at)} className={dashboardReadOnlyInputClass} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs font-medium text-foreground/90">Voided by</Label>
+                  <Input readOnly value={getAuditUserLabel(auditRow.voided_by_name, auditRow.voided_by_username, auditRow.voided_by_user_id)} className={dashboardReadOnlyInputClass} />
+                </div>
+              </>}
               <div className="flex flex-col gap-1">
                 <Label className="text-xs font-medium text-foreground/90">Encoded by</Label>
                 <Input
@@ -1072,6 +1160,7 @@ export default function PaymentsPage() {
       >
         <DialogContent className={`sm:max-w-md ${dashboardDialogClass}`}>
           <DialogHeader className="gap-1.5"><DialogTitle className="text-base font-semibold tracking-tight">Edit Payment</DialogTitle></DialogHeader>
+          <p className="text-xs text-muted-foreground">O.R. numbers and pieces are locked after insertion. To correct them, void this record and create a new one.</p>
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
               <Label className="text-xs font-medium text-foreground/90">O.R. Date</Label>
@@ -1093,13 +1182,7 @@ export default function PaymentsPage() {
             <div className="grid grid-cols-2 gap-2">
               <div className="flex flex-col gap-1">
                 <Label className="text-xs font-medium text-foreground/90">O.R. No. - Start</Label>
-                <Input type="text" inputMode="numeric" maxLength={7} className={dashboardInputClass} value={editForm.or_no_start}
-                  onChange={(e) => {
-                    const start = sanitizeDigits(e.target.value);
-                    setEditError(null);
-                    setEditFieldErrors({});
-                    setEditForm((f) => ({ ...f, or_no_start: start, or_no_end: computeEnd(start, f.pieces) }));
-                  }} />
+                <Input type="text" className={dashboardReadOnlyInputClass} value={editForm.or_no_start} readOnly />
               </div>
               <div className="flex flex-col gap-1">
                 <Label className="text-xs font-medium text-foreground/90">O.R. No. - End</Label>
@@ -1109,19 +1192,7 @@ export default function PaymentsPage() {
             <div className="grid grid-cols-2 gap-2">
               <div className="flex flex-col gap-1">
                 <Label className="text-xs font-medium text-foreground/90">No. of Pieces</Label>
-                <Input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={PIECES_UI_DIGITS}
-                  className={dashboardInputClass}
-                  value={editForm.pieces}
-                  onChange={(e) => {
-                    const pieces = sanitizeDigits(e.target.value, PIECES_UI_DIGITS);
-                    setEditError(null);
-                    setEditFieldErrors({});
-                    setEditForm((f) => ({ ...f, pieces, or_no_end: computeEnd(f.or_no_start, pieces) }));
-                  }}
-                />
+                <Input type="text" className={dashboardReadOnlyInputClass} value={editForm.pieces} readOnly />
               </div>
               <div className="flex flex-col gap-1">
                 <Label className="text-xs font-medium text-foreground/90">RCD Amount</Label>
@@ -1159,7 +1230,9 @@ export default function PaymentsPage() {
             ) : null}
           </div>
           <DialogFooter className="mt-1 gap-2 sm:items-center">
-            <Button variant="destructive" className={`mr-auto ${dashboardPrimaryButtonClass}`} onClick={() => { setDeleteRow(editRow); setEditRow(null); }}>Delete</Button>
+            <Button variant="destructive" className={`mr-auto ${dashboardPrimaryButtonClass}`} onClick={() => { setVoidRow(editRow); setEditRow(null); }}>
+              Void
+            </Button>
             <Button
               variant="ghost"
               className={dashboardGhostButtonClass}
@@ -1176,18 +1249,18 @@ export default function PaymentsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteRow} onOpenChange={(o) => !o && setDeleteRow(null)}>
+      {/* Void Confirmation */}
+      <AlertDialog open={!!voidRow} onOpenChange={(o) => !o && setVoidRow(null)}>
         <AlertDialogContent size="sm" className={dashboardDialogClass}>
           <AlertDialogHeader className="gap-1.5">
-            <AlertDialogTitle className="text-base font-semibold tracking-tight">Delete this record?</AlertDialogTitle>
+            <AlertDialogTitle className="text-base font-semibold tracking-tight">Void this record?</AlertDialogTitle>
             <AlertDialogDescription className="text-sm leading-relaxed text-muted-foreground">
-              This will permanently remove the payment entry. This action cannot be undone.
+              This will mark the payment entry as Void and preserve it for audit viewing. To correct O.R. numbers or pieces, create a new record after voiding this one.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-1 gap-2">
             <AlertDialogCancel className={dashboardGhostButtonClass}>Cancel</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" className={dashboardPrimaryButtonClass} onClick={handleDelete}>Delete</AlertDialogAction>
+            <AlertDialogAction variant="destructive" className={dashboardPrimaryButtonClass} disabled={voidLoading} onClick={(event) => { event.preventDefault(); void handleVoid(); }}>{voidLoading ? "Voiding..." : "Void"}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
