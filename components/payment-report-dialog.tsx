@@ -124,7 +124,7 @@ export function PaymentReportDialog({ payments, preparedBy, onClose }: { payment
               <Label htmlFor="report-collector">Collector</Label>
               <Select value={selection.collector || "all"} onValueChange={(value) => changeSelection({ collector: value === "all" ? "" : value })}>
                 <SelectTrigger id="report-collector" className="w-52 rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" className="max-h-52 [&_[data-radix-select-viewport]]:max-h-40">
                   <SelectItem value="all">All collectors</SelectItem>
                   {collectors.map((collector) => <SelectItem key={collector} value={collector}>{collector}</SelectItem>)}
                 </SelectContent>

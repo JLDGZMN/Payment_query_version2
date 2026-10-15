@@ -1,8 +1,21 @@
 const RCD_AMOUNT_INTEGER_DIGITS = 10;
 
 export const COLLECTORS = [
-  "Lydinar Dastas", "Julio De Guzman", "Ivy Callope", "Carla Buganan",
-  "Lacel Centeno", "Rizza Rovira", "Baby Jane De Jesus",
+  "Juan Dela Cruz",
+  "Maria Santos",
+  "Jose Reyes",
+  "Ana Marie Garcia",
+  "Mark Anthony Cruz",
+  "John Paul Ramos",
+  "Michael Santos",
+  "Maria Theresa Garcia",
+  "Angelica Reyes",
+  "Christian Bautista",
+  "Joshua Mendoza",
+  "Stephanie Flores",
+  "Carlo Miguel Fernandez",
+  "Patricia Anne Gonzales",
+  "Daniel Joseph Aquino",
 ];
 
 export function getPaymentEditError(body: Record<string, unknown>, saved: { or_no_start: string; or_no_end: string; pieces: number }) {

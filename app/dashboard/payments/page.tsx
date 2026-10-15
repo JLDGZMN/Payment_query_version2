@@ -781,7 +781,7 @@ export default function PaymentsPage() {
             <Label className="text-xs font-medium text-foreground/90">Collector</Label>
             <Select value={form.collector} onValueChange={(v) => setForm((f) => ({ ...f, collector: v }))}>
               <SelectTrigger className={`w-44 ${dashboardSelectTriggerClass}`}><SelectValue placeholder="Select…" /></SelectTrigger>
-              <SelectContent>
+              <SelectContent position="popper" className="max-h-52 [&_[data-radix-select-viewport]]:max-h-40">
                 {COLLECTORS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -859,7 +859,7 @@ export default function PaymentsPage() {
                     <SelectTrigger className={`w-44 ${dashboardSelectTriggerClass}`}>
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper" className="max-h-52 [&_[data-radix-select-viewport]]:max-h-40">
                       <SelectItem value="all">All</SelectItem>
                       {COLLECTORS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
@@ -1218,7 +1218,7 @@ export default function PaymentsPage() {
                 setEditForm((f) => ({ ...f, collector: v }));
               }}>
                 <SelectTrigger className={`w-full ${dashboardSelectTriggerClass}`}><SelectValue placeholder="Select…" /></SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" className="max-h-52 [&_[data-radix-select-viewport]]:max-h-40">
                   {COLLECTORS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
               </Select>
