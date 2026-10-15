@@ -676,6 +676,7 @@ export default function PaymentsPage() {
           const isFiltered = columnFilters.length > 0;
           const filteredRows = table.getFilteredRowModel().rows.filter((row) => row.original.status === "Active");
           const filteredRCD = filteredRows.reduce((sum, r) => sum + Number(r.original.rcd_amount), 0);
+          const filteredPieces = filteredRows.reduce((sum, r) => sum + Number(r.original.pieces), 0);
 
           const stats = [
             {
@@ -696,7 +697,7 @@ export default function PaymentsPage() {
                 ? filteredRCD.toLocaleString("en-PH", { style: "currency", currency: "PHP" })
                 : "—",
               description: isFiltered
-                ? `${filteredRows.length} active filtered record${filteredRows.length !== 1 ? "s" : ""}`
+                ? `${filteredRows.length.toLocaleString("en-PH")} matching record${filteredRows.length !== 1 ? "s" : ""} · ${filteredPieces.toLocaleString("en-PH")} piece${filteredPieces !== 1 ? "s" : ""}`
                 : "Apply a filter to see total",
               icon: ReceiptIcon,
             },

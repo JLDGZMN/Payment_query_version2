@@ -69,11 +69,7 @@ const dashboardSuccessClass =
   "rounded-xl border border-emerald-200/80 bg-emerald-50/80 px-3.5 py-3 text-sm leading-relaxed text-emerald-800 shadow-sm dark:border-emerald-900/70 dark:bg-emerald-950/40 dark:text-emerald-100";
 const developmentTeam = [
   "Julio De Guzman",
-  "Ivy Callope",
   "Carla Buganan",
-  "Lacel Centeno",
-  "Rizza Rovira",
-  "Baby Jane De Jesus",
 ];
 
 export default function ProfilePage() {
