@@ -156,6 +156,8 @@ try {
     }
   }
 
+  await conn.query(readFileSync(new URL("./payment-corrections.sql", import.meta.url), "utf-8"));
+
   console.log("\nMigration complete.");
 } catch (err) {
   console.error("Migration failed:", err.message);

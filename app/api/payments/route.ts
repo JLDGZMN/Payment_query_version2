@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
 import { getAuth, type Auth } from "@/lib/auth";
-import { getRcdAmountValidationError } from "@/lib/payment-validation";
 import { getServerConfigErrorMessage } from "@/lib/server-env";
-import type { ResultSetHeader, RowDataPacket } from "mysql2";
-import { PAYMENT_SELECT_SQL, serializePayment, type PaymentRow } from "./payment-record";
+import { PAYMENT_SELECT_SQL, serializePayments, type PaymentRow } from "./payment-record";
+
+import { insertPayment } from "./insert-payment";
 
 export const runtime = "nodejs";
 type Session = Auth["$Infer"]["Session"];
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
      ORDER BY p.or_date DESC, p.id DESC`
   );
 
-  const payments = rows.map(serializePayment);
+  const payments = await serializePayments(rows, pool);
 
   return NextResponse.json(payments);
 }
@@ -53,52 +53,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const pool = getPool();
-  const body = await request.json();
-  const { or_date, or_no_start, or_no_end, pieces, rcd_amount, collector } = body;
-
-  if (!or_date || !or_no_start || !or_no_end || !pieces || !rcd_amount || !collector) {
-    return NextResponse.json({ error: "All fields are required" }, { status: 400 });
+  let body: Record<string, unknown>;
+  try {
+    const parsed: unknown = await request.json();
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error();
+    body = parsed as Record<string, unknown>;
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
-
-  const rcdAmountError = getRcdAmountValidationError(rcd_amount);
-  if (rcdAmountError) {
-    return NextResponse.json({ error: rcdAmountError }, { status: 400 });
+  try {
+    const result = await insertPayment(getPool(), body, session.user.id);
+    return NextResponse.json(result.data, { status: result.status });
+  } catch {
+    return NextResponse.json({ error: "Unable to save payment. Please try again." }, { status: 500 });
   }
-
-  const start = parseInt(or_no_start);
-  const end = parseInt(or_no_end);
-  if (isNaN(start) || isNaN(end) || start > end) {
-    return NextResponse.json({ error: "Invalid O.R. number range." }, { status: 400 });
-  }
-
-  const [conflicts] = await pool.execute<RowDataPacket[]>(
-    `SELECT id, or_no_start, or_no_end FROM payments
-     WHERE status = 'Active' AND CAST(or_no_start AS UNSIGNED) <= CAST(? AS UNSIGNED)
-       AND CAST(or_no_end   AS UNSIGNED) >= CAST(? AS UNSIGNED)
-     LIMIT 1`,
-    [end, start]
-  );
-
-  if (conflicts.length > 0) {
-    const c = conflicts[0];
-    return NextResponse.json(
-      { error: `O.R. range overlaps with an existing record (${c.or_no_start}-${c.or_no_end}).` },
-      { status: 409 }
-    );
-  }
-
-  const [result] = await pool.execute<ResultSetHeader>(
-    "INSERT INTO `payments` (`or_date`, `or_no_start`, `or_no_end`, `pieces`, `rcd_amount`, `collector`, `created_by_user_id`, `updated_by_user_id`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-    [or_date, or_no_start, or_no_end, pieces, rcd_amount, collector, session.user.id, session.user.id]
-  );
-
-  const [rows] = await pool.execute<PaymentRow[]>(
-    `${PAYMENT_SELECT_SQL}
-     WHERE p.id = ?`,
-    [result.insertId]
-  );
-
-  const row = rows[0];
-  return NextResponse.json(serializePayment(row), { status: 201 });
 }

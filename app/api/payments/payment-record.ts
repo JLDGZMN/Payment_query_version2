@@ -1,4 +1,5 @@
 import type { RowDataPacket } from "mysql2";
+import type { Pool, PoolConnection } from "mysql2/promise";
 
 export type PaymentRow = RowDataPacket & {
   id: number;
@@ -56,4 +57,28 @@ export function serializePayment(row: PaymentRow) {
     ...row,
     rcd_amount: Number(row.rcd_amount),
   };
+}
+
+// Load both directions from immutable links instead of guessing from O.R. numbers.
+export async function serializePayments(rows: PaymentRow[], db: Pool | PoolConnection) {
+  if (!rows.length) return [];
+  const ids = rows.map((row) => row.id);
+  const placeholders = ids.map(() => "?").join(",");
+  const [links] = await db.execute<(RowDataPacket & { replacement_payment_id: number; voided_payment_id: number })[]>(
+    `SELECT replacement_payment_id, voided_payment_id FROM payment_corrections
+     WHERE replacement_payment_id IN (${placeholders}) OR voided_payment_id IN (${placeholders})
+     ORDER BY replacement_payment_id, voided_payment_id`,
+    [...ids, ...ids]
+  );
+  const originals = new Map<number, number[]>();
+  const replacements = new Map<number, number[]>();
+  for (const link of links) {
+    originals.set(link.replacement_payment_id, [...(originals.get(link.replacement_payment_id) ?? []), link.voided_payment_id]);
+    replacements.set(link.voided_payment_id, [...(replacements.get(link.voided_payment_id) ?? []), link.replacement_payment_id]);
+  }
+  return rows.map((row) => ({
+    ...serializePayment(row),
+    correction_of_ids: originals.get(row.id) ?? [],
+    replacement_ids: replacements.get(row.id) ?? [],
+  }));
 }

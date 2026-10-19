@@ -18,6 +18,31 @@ export const COLLECTORS = [
   "Daniel Joseph Aquino",
 ];
 
+export function getPaymentInsertError(body: Record<string, unknown>) {
+  const fieldError = getPaymentEditError(
+    { or_date: body.or_date, rcd_amount: body.rcd_amount, collector: body.collector },
+    { or_no_start: "", or_no_end: "", pieces: 0 }
+  );
+  if (fieldError) return fieldError;
+  if (typeof body.or_no_start !== "string" || !/^\d{7}$/.test(body.or_no_start) ||
+      typeof body.or_no_end !== "string" || !/^\d{7}$/.test(body.or_no_end)) {
+    return "O.R. start and end numbers must be exactly 7 digits.";
+  }
+  if (typeof body.pieces !== "number" || !Number.isInteger(body.pieces) || body.pieces < 1 || body.pieces > 9999) {
+    return "Pieces must be a whole number from 1 to 9,999.";
+  }
+  if (Number(body.or_no_end) - Number(body.or_no_start) + 1 !== body.pieces) {
+    return "O.R. range must match the number of pieces.";
+  }
+  if (Number(String(body.rcd_amount).replace(/,/g, "")) <= 0) return "RCD amount must be greater than zero.";
+  const acknowledged = body.acknowledged_voided_ids;
+  if (acknowledged !== undefined && (!Array.isArray(acknowledged) ||
+      acknowledged.some((id) => !Number.isSafeInteger(id) || id < 1) || new Set(acknowledged).size !== acknowledged.length)) {
+    return "Invalid voided payment acknowledgement.";
+  }
+  return null;
+}
+
 export function getPaymentEditError(body: Record<string, unknown>, saved: { or_no_start: string; or_no_end: string; pieces: number }) {
   const allowed = ["or_date", "rcd_amount", "collector", "or_no_start", "or_no_end", "pieces"];
   if (Object.keys(body).some((key) => !allowed.includes(key))) return "Unsupported payment field.";

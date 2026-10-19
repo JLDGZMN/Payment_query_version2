@@ -3,7 +3,7 @@ import { getPool } from "@/lib/db";
 import { getAuth } from "@/lib/auth";
 import { getPaymentEditError } from "@/lib/payment-validation";
 import { getServerConfigErrorMessage } from "@/lib/server-env";
-import { PAYMENT_SELECT_SQL, serializePayment, type PaymentRow } from "../payment-record";
+import { PAYMENT_SELECT_SQL, serializePayments, type PaymentRow } from "../payment-record";
 
 export const runtime = "nodejs";
 type Context = { params: Promise<{ id: string }> };
@@ -58,8 +58,9 @@ async function mutatePayment(request: NextRequest, { params }: Context, voidReco
       );
     }
     const [rows] = await conn.execute<PaymentRow[]>(`${PAYMENT_SELECT_SQL} WHERE p.id = ?`, [id]);
+    const [payment] = await serializePayments(rows, conn);
     await conn.commit();
-    return NextResponse.json(serializePayment(rows[0]));
+    return NextResponse.json(payment);
   } catch (error) {
     await conn.rollback();
     console.error("Payment update failed", error);

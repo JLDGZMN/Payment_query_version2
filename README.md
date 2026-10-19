@@ -280,6 +280,8 @@ MIT
 
 After insertion, O.R. start/end numbers and pieces are read-only. Only O.R. date, RCD amount, and collector can be edited. To correct numbers or pieces, void the original entry and insert a replacement.
 
+Reusing a range that overlaps voided payments shows a warning with each original record, its voider, and voided timestamp. Cancel saves nothing; Proceed inserts the corrected payment after validation and an active-overlap check. The server requires acknowledgement of all current voided matches and atomically links them to the replacement by payment ID. Audit History provides View original / View replacement links, and Void History exposes replacement links. Original rows and audit fields remain unchanged. Apply `node scripts/migrate-payment-corrections.mjs` to each database before deploying this feature. See [the reinsertion test checklist](docs/voided-or-reinsertion-testing.md) for manual scenarios and automated checks.
+
 Open Edit in the Payments table and use the Void button inside the edit dialog. The main table shows active records. Use Void History at the far right of the Filter by container to view preserved voided entries with a Void badge and audit details, including who voided the entry and when. Voided entries are excluded from active totals and cannot be edited. Voided ranges do not block replacement entries.
 
 Run `node scripts/migrate.mjs` before using this version to add status and void audit columns to existing databases. Permanent deletion is disabled; the API uses `PATCH /api/payments/:id` with `{ "status": "Void" }` for voiding.

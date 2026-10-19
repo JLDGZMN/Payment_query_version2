@@ -63,6 +63,9 @@ CREATE TABLE IF NOT EXISTS `payments` (
   `pieces` INT UNSIGNED NOT NULL,
   `rcd_amount` DECIMAL(12,2) NOT NULL,
   `collector` VARCHAR(255) NOT NULL,
+  `status` ENUM('Active', 'Void') NOT NULL DEFAULT 'Active',
+  `voided_at` DATETIME NULL,
+  `voided_by_user_id` VARCHAR(36) NULL,
   `created_by_user_id` VARCHAR(36),
   `updated_by_user_id` VARCHAR(36),
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -71,5 +74,19 @@ CREATE TABLE IF NOT EXISTS `payments` (
   CONSTRAINT `payments_created_by_user_fk`
     FOREIGN KEY (`created_by_user_id`) REFERENCES `user`(`id`) ON DELETE SET NULL,
   CONSTRAINT `payments_updated_by_user_fk`
-    FOREIGN KEY (`updated_by_user_id`) REFERENCES `user`(`id`) ON DELETE SET NULL
+    FOREIGN KEY (`updated_by_user_id`) REFERENCES `user`(`id`) ON DELETE SET NULL,
+  CONSTRAINT `payments_voided_by_user_fk`
+    FOREIGN KEY (`voided_by_user_id`) REFERENCES `user`(`id`) ON DELETE SET NULL
 );
+
+CREATE TABLE IF NOT EXISTS `payment_corrections` (
+  `replacement_payment_id` INT UNSIGNED NOT NULL,
+  `voided_payment_id` INT UNSIGNED NOT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`replacement_payment_id`, `voided_payment_id`),
+  INDEX `payment_corrections_original_idx` (`voided_payment_id`, `replacement_payment_id`),
+  CONSTRAINT `payment_corrections_replacement_fk`
+    FOREIGN KEY (`replacement_payment_id`) REFERENCES `payments` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `payment_corrections_original_fk`
+    FOREIGN KEY (`voided_payment_id`) REFERENCES `payments` (`id`) ON DELETE RESTRICT
+) ENGINE=InnoDB;

@@ -9,6 +9,8 @@ import {
   ReceiptIcon,
   UsersIcon,
   StackIcon,
+  CircleNotchIcon,
+  WarningCircleIcon,
 } from "@phosphor-icons/react";
 import {
   Card,
@@ -107,6 +109,8 @@ interface Payment {
   created_by_username: string | null;
   updated_by_name: string | null;
   updated_by_username: string | null;
+  correction_of_ids: number[];
+  replacement_ids: number[];
 }
 
 const emptyForm = {
@@ -241,7 +245,15 @@ export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(false);
-  const [, setInsertError] = useState<string | null>(null);
+  const [pendingInsert, setPendingInsert] = useState<PaymentForm | null>(null);
+  const [pendingVoidedMatches, setPendingVoidedMatches] = useState<Payment[]>([]);
+  const confirmInsertRef = useRef<HTMLButtonElement | null>(null);
+  const cancelInsertRef = useRef<HTMLButtonElement | null>(null);
+  const insertButtonRef = useRef<HTMLButtonElement | null>(null);
+  const orStartRef = useRef<HTMLInputElement | null>(null);
+  const focusStartAfterInsertRef = useRef(false);
+  const collectorSelectedRef = useRef(false);
+  const [insertError, setInsertError] = useState<string | null>(null);
   const [, setInsertFieldErrors] = useState<FormErrors>({});
 
   const [editRow, setEditRow] = useState<Payment | null>(null);
@@ -270,6 +282,10 @@ export default function PaymentsPage() {
   const [lockedColumnWidths, setLockedColumnWidths] = useState<Partial<Record<string, string>>>({});
 
   useEffect(() => { fetchPayments(); }, []);
+
+  useEffect(() => {
+    if (pendingInsert && pendingVoidedMatches.length) cancelInsertRef.current?.focus();
+  }, [pendingInsert, pendingVoidedMatches]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -415,7 +431,8 @@ export default function PaymentsPage() {
     if (res.ok) setPayments(await res.json());
   }
 
-  async function handleInsert() {
+  function requestInsert() {
+    if (loading || pendingInsert) return;
     const validation = validatePaymentForm(form);
     if (validation.summary) {
       setInsertFieldErrors(validation.fieldErrors);
@@ -425,33 +442,61 @@ export default function PaymentsPage() {
     }
     setInsertFieldErrors({});
     setInsertError(null);
+    setPendingVoidedMatches(payments.filter((payment) => payment.status === "Void" &&
+      Number(payment.or_no_start) <= Number(form.or_no_end) && Number(payment.or_no_end) >= Number(form.or_no_start)));
+    setPendingInsert({ ...form });
+  }
+
+  async function handleInsert() {
+    if (!pendingInsert || loading) return;
+    const validation = validatePaymentForm(pendingInsert);
+    if (validation.summary) {
+      setInsertError(validation.summary);
+      return;
+    }
+    setInsertError(null);
     setLoading(true);
-    const res = await fetch("/api/payments", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...form,
-        pieces: Number(form.pieces),
-        rcd_amount: Number(normalizeRcdAmountValue(form.rcd_amount)),
-      }),
-    });
-    if (res.ok) {
+    try {
+      const res = await fetch("/api/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...pendingInsert,
+          pieces: Number(pendingInsert.pieces),
+          rcd_amount: Number(normalizeRcdAmountValue(pendingInsert.rcd_amount)),
+          acknowledged_voided_ids: pendingVoidedMatches.map((payment) => payment.id),
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data?.code === "VOID_CONFIRMATION_REQUIRED" && Array.isArray(data.voided_records)) {
+          setPendingVoidedMatches(data.voided_records);
+          setInsertError(data.error);
+          cancelInsertRef.current?.focus();
+          return;
+        }
+        throw new Error(data?.error ?? "Failed to insert record. Please try again.");
+      }
       const created: Payment = await res.json();
-      setPayments((prev) => [created, ...prev]);
+      setPayments((prev) => [created, ...prev.filter((payment) => payment.id !== created.id).map((payment) =>
+        created.correction_of_ids.includes(payment.id)
+          ? { ...payment, replacement_ids: [...new Set([...(payment.replacement_ids ?? []), created.id])] }
+          : payment
+      )]);
       setForm(emptyForm);
       setInsertFieldErrors({});
-      toast.success("Payment record inserted.");
+      focusStartAfterInsertRef.current = true;
+      setPendingInsert(null);
+      setPendingVoidedMatches([]);
       setNewIds((prev) => new Set(prev).add(created.id));
       setTimeout(() => {
         setNewIds((prev) => { const next = new Set(prev); next.delete(created.id); return next; });
       }, 4000);
-    } else {
-      const data = await res.json();
-      const message = data.error ?? "Failed to insert record.";
-      setInsertError(message);
-      toast.error(message);
+    } catch (error) {
+      setInsertError(error instanceof Error ? error.message : "Unable to save payment. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function handleUpdate() {
@@ -736,10 +781,22 @@ export default function PaymentsPage() {
         })()}
 
         {/* Insert Form Bar */}
-        <div className={`flex flex-wrap items-end gap-3 ${dashboardPanelClass}`}>
+        <form className={`flex flex-wrap items-end gap-3 ${dashboardPanelClass}`} onKeyDown={(event) => {
+          if (event.key !== "Enter" || !(event.target instanceof HTMLInputElement) || event.nativeEvent.isComposing) return;
+          event.preventDefault();
+          if (event.repeat) return;
+          const fields = Array.from(event.currentTarget.querySelectorAll<HTMLInputElement | HTMLButtonElement>(
+            'input, button[role="combobox"], button[type="submit"]'
+          )).filter((field) => !field.disabled && !(field instanceof HTMLInputElement && field.readOnly));
+          const currentIndex = fields.indexOf(event.target);
+          if (currentIndex !== -1) fields[currentIndex + 1]?.focus();
+        }} onSubmit={(event) => {
+          event.preventDefault();
+          requestInsert();
+        }}>
           <div className="flex flex-col gap-1">
             <Label className="text-xs font-medium text-foreground/90">O.R. No. - Start</Label>
-            <Input type="text" inputMode="numeric" className={`w-28 ${dashboardInputClass}`} value={form.or_no_start}
+            <Input ref={orStartRef} type="text" inputMode="numeric" className={`w-28 ${dashboardInputClass}`} value={form.or_no_start}
               maxLength={7}
               onChange={(e) => {
                 const start = sanitizeDigits(e.target.value);
@@ -749,7 +806,7 @@ export default function PaymentsPage() {
           </div>
           <div className="flex flex-col gap-1">
             <Label className="text-xs font-medium text-foreground/90">O.R. No. - End</Label>
-            <Input type="text" inputMode="numeric" className={`w-28 ${dashboardReadOnlyInputClass}`} value={form.or_no_end} readOnly />
+            <Input type="text" inputMode="numeric" className={`w-28 ${dashboardReadOnlyInputClass}`} value={form.or_no_end} readOnly tabIndex={-1} />
           </div>
           <div className="flex flex-col gap-1">
             <Label className="text-xs font-medium text-foreground/90">No. of Pieces</Label>
@@ -780,17 +837,26 @@ export default function PaymentsPage() {
           </div>
           <div className="flex flex-col gap-1">
             <Label className="text-xs font-medium text-foreground/90">Collector</Label>
-            <Select value={form.collector} onValueChange={(v) => setForm((f) => ({ ...f, collector: v }))}>
+            <Select value={form.collector} onValueChange={(v) => {
+              setForm((f) => ({ ...f, collector: v }));
+              collectorSelectedRef.current = true;
+            }}>
               <SelectTrigger className={`w-44 ${dashboardSelectTriggerClass}`}><SelectValue placeholder="Select…" /></SelectTrigger>
-              <SelectContent position="popper" className="max-h-52 [&_[data-radix-select-viewport]]:max-h-40">
+              <SelectContent position="popper" className="max-h-52 [&_[data-radix-select-viewport]]:max-h-40" onCloseAutoFocus={(event) => {
+                if (collectorSelectedRef.current) {
+                  event.preventDefault();
+                  collectorSelectedRef.current = false;
+                  insertButtonRef.current?.focus();
+                }
+              }}>
                 {COLLECTORS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={handleInsert} className={dashboardPrimaryButtonClass} disabled={loading}>
-            {loading ? "Inserting…" : "INSERT"}
+          <Button ref={insertButtonRef} type="submit" className={dashboardPrimaryButtonClass} disabled={loading}>
+            INSERT
           </Button>
-        </div>
+        </form>
 
         {/* Filter Row */}
         <div className={`flex flex-wrap items-end gap-3 ${dashboardPanelClass}`}>
@@ -985,6 +1051,78 @@ export default function PaymentsPage() {
         </div>
       </div>
 
+      <AlertDialog open={!!pendingInsert} onOpenChange={(open) => {
+        if (!open && !loading) {
+          setPendingInsert(null);
+          setPendingVoidedMatches([]);
+          setInsertError(null);
+        }
+      }}>
+        <AlertDialogContent className={`data-[size=default]:max-w-[calc(100%-2rem)] data-[size=default]:sm:max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto ${dashboardDialogClass}`} onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          (pendingVoidedMatches.length ? cancelInsertRef : confirmInsertRef).current?.focus();
+        }} onCloseAutoFocus={(event) => {
+          if (focusStartAfterInsertRef.current) {
+            event.preventDefault();
+            focusStartAfterInsertRef.current = false;
+            orStartRef.current?.focus();
+          }
+        }} onEscapeKeyDown={(event) => { if (loading) event.preventDefault(); }}>
+          <AlertDialogHeader className="flex flex-col place-items-start gap-1.5 text-left">
+            <AlertDialogTitle className="flex items-center gap-2.5 text-base font-semibold tracking-tight">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400">
+                <WarningCircleIcon size={20} weight="duotone" aria-hidden="true" />
+              </span>
+              {pendingVoidedMatches.length ? "Previously Voided O.R." : "Confirm Payment Entry"}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs leading-relaxed text-muted-foreground">
+              {pendingVoidedMatches.length
+                ? "This O.R. number range was previously voided. You may proceed with the corrected details. The original records will remain in Void History and be linked to this new entry."
+                : "Please review the payment details below before confirming this entry."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {pendingVoidedMatches.length > 0 && (
+            <section aria-label="Matching voided payments" className="max-h-48 space-y-3 overflow-y-auto rounded-xl border border-amber-300/60 bg-amber-50/60 p-4 dark:border-amber-800/60 dark:bg-amber-950/30">
+              {pendingVoidedMatches.map((payment) => (
+                <div key={payment.id} className="space-y-1 text-xs">
+                  <p className="font-semibold">Entry #{payment.id} · O.R. {payment.or_no_start}–{payment.or_no_end}</p>
+                  <p className="text-muted-foreground">Voided {formatAuditTimestamp(payment.voided_at)} by {getAuditUserLabel(payment.voided_by_name, payment.voided_by_username, payment.voided_by_user_id)}</p>
+                  <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setAuditRow(payment)}>View original entry #{payment.id}</Button>
+                </div>
+              ))}
+            </section>
+          )}
+          {pendingInsert && (
+            <dl className="divide-y divide-border/60 rounded-xl border border-border/60 bg-muted/30 px-4">
+              {[
+                ["O.R. Number", `${pendingInsert.or_no_start}–${pendingInsert.or_no_end}`],
+                ["O.R. Date", format(new Date(`${pendingInsert.or_date}T00:00:00`), "MMM d, yyyy")],
+                ["No. of Pieces", Number(pendingInsert.pieces).toLocaleString("en-PH")],
+                ["RCD Amount", Number(normalizeRcdAmountValue(pendingInsert.rcd_amount)).toLocaleString("en-PH", { style: "currency", currency: "PHP" })],
+                ["Collector", pendingInsert.collector],
+              ].map(([label, value]) => (
+                <div key={label} className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-4 py-3">
+                  <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+                  <dd className="text-right text-sm font-medium break-words text-foreground/90 tabular-nums">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+          {insertError && <p role="alert" className="rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-3 text-xs leading-relaxed text-destructive">{insertError}</p>}
+          <AlertDialogFooter className="mt-1 gap-2 sm:items-center">
+            <AlertDialogCancel ref={cancelInsertRef} variant="ghost" className={dashboardGhostButtonClass} disabled={loading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction ref={confirmInsertRef} className={`min-w-44 ${dashboardPrimaryButtonClass}`} disabled={loading} aria-busy={loading} onKeyDown={(event) => {
+              if (event.key === "Enter" && event.repeat) event.preventDefault();
+            }} onClick={(event) => {
+              event.preventDefault();
+              void handleInsert();
+            }}>
+              {loading ? <><CircleNotchIcon aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />Saving payment…</> : pendingVoidedMatches.length ? "Proceed" : "Confirm Insert"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {reportOpen && <PaymentReportDialog payments={payments} preparedBy={session?.user.name || "Not available"} onClose={() => setReportOpen(false)} />}
 
       {/* Void History */}
@@ -1007,11 +1145,12 @@ export default function PaymentsPage() {
                   <TableHead>Status</TableHead>
                   <TableHead>Voided at</TableHead>
                   <TableHead>Voided by</TableHead>
+                  <TableHead>Correction tracking</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {voidedPayments.length === 0 ? (
-                  <TableRow><TableCell colSpan={9} className="h-24 text-center text-muted-foreground">No voided O.R. records.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={10} className="h-24 text-center text-muted-foreground">No voided O.R. records.</TableCell></TableRow>
                 ) : voidedPayments.map((payment) => (
                   <TableRow key={payment.id}>
                     <TableCell>{format(new Date(payment.or_date), "MM/dd/yyyy")}</TableCell>
@@ -1023,6 +1162,15 @@ export default function PaymentsPage() {
                     <TableCell><Badge variant="destructive">Void</Badge></TableCell>
                     <TableCell>{formatAuditTimestamp(payment.voided_at)}</TableCell>
                     <TableCell>{getAuditUserLabel(payment.voided_by_name, payment.voided_by_username, payment.voided_by_user_id)}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col items-start gap-1">
+                        <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setAuditRow(payment)}>View audit for Entry #{payment.id}</Button>
+                        {(payment.replacement_ids ?? []).map((id) => {
+                          const replacement = payments.find((row) => row.id === id);
+                          return <Button key={id} type="button" variant="link" size="sm" className="h-auto p-0 text-xs" disabled={!replacement} onClick={() => replacement && setAuditRow(replacement)}>View replacement entry #{id}{replacement?.status === "Void" ? " (Void)" : ""}</Button>;
+                        })}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -1036,12 +1184,39 @@ export default function PaymentsPage() {
 
       {/* Audit History */}
       <Dialog open={!!auditRow} onOpenChange={(open) => !open && setAuditRow(null)}>
-        <DialogContent className={`sm:max-w-lg ${dashboardDialogClass}`}>
+        <DialogContent className={`sm:max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto ${dashboardDialogClass}`}>
           <DialogHeader className="gap-1.5">
             <DialogTitle className="text-base font-semibold tracking-tight">Payment Audit History</DialogTitle>
           </DialogHeader>
           {auditRow ? (
             <div className="grid gap-3 sm:grid-cols-2">
+              <section className="space-y-3 rounded-xl border border-border/60 bg-muted/30 p-4 sm:col-span-2" aria-label="Payment details and correction tracking">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">Entry #{auditRow.id}</p>
+                  <Badge variant={auditRow.status === "Void" ? "destructive" : "secondary"} className={auditRow.status === "Active" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" : undefined}>{auditRow.status}</Badge>
+                </div>
+                <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-xs">
+                  <dt className="text-muted-foreground">O.R. Number</dt><dd className="text-right font-medium break-words">{auditRow.or_no_start}–{auditRow.or_no_end}</dd>
+                  <dt className="text-muted-foreground">O.R. Date</dt><dd className="text-right">{format(new Date(auditRow.or_date), "MM/dd/yyyy")}</dd>
+                  <dt className="text-muted-foreground">Pieces</dt><dd className="text-right">{auditRow.pieces.toLocaleString("en-PH")}</dd>
+                  <dt className="text-muted-foreground">RCD Amount</dt><dd className="text-right">{Number(auditRow.rcd_amount).toLocaleString("en-PH", { style: "currency", currency: "PHP" })}</dd>
+                  <dt className="text-muted-foreground">Collector</dt><dd className="text-right break-words">{auditRow.collector}</dd>
+                </dl>
+                {[
+                  { label: "Correction of voided entry", action: "View original entry", ids: auditRow.correction_of_ids ?? [] },
+                  { label: "Replacement entry", action: "View replacement entry", ids: auditRow.replacement_ids ?? [] },
+                ].map(({ label, action, ids }) => ids.length > 0 && (
+                  <div key={label} className="space-y-2 border-t border-border/60 pt-3">
+                    {ids.map((id) => {
+                      const linked = payments.find((payment) => payment.id === id);
+                      return <div key={id} className="space-y-1 text-xs">
+                        <p className="font-medium">{label} #{id}{linked ? ` · O.R. ${linked.or_no_start}–${linked.or_no_end} · ${linked.status}` : ""}</p>
+                        <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" disabled={!linked} onClick={() => linked && setAuditRow(linked)}>{action} #{id}</Button>
+                      </div>;
+                    })}
+                  </div>
+                ))}
+              </section>
               {auditRow.status === "Void" && <>
                 <div className="flex flex-col gap-1">
                   <Label className="text-xs font-medium text-foreground/90">Voided at</Label>
