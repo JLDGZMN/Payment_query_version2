@@ -98,6 +98,7 @@ export default function ProfilePage() {
       <SidebarInset>
         <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border/60 bg-background/70 px-4 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
           <span className="text-xs font-medium text-muted-foreground">Profile</span>
+          <ThemeSwitch />
         </header>
         <div className="flex items-center justify-center p-8">
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -159,6 +160,7 @@ export default function ProfilePage() {
         <SidebarTrigger className="-ml-1 md:hidden" />
         <Separator orientation="vertical" className="mr-2 h-4 md:hidden" />
         <span className="text-xs font-medium text-muted-foreground">Profile</span>
+        <ThemeSwitch />
       </header>
 
       <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
@@ -216,24 +218,6 @@ export default function ProfilePage() {
               <Label className="text-xs font-medium text-foreground/90">Email</Label>
               <Input value={currentEmail} readOnly className={dashboardReadOnlyInputClass} />
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className={dashboardCardClass}>
-          <CardHeader className="gap-1.5 border-b border-border/50 px-6 pt-6 pb-4">
-            <CardTitle className="text-lg font-semibold tracking-tight">Appearance</CardTitle>
-            <CardDescription className="text-sm leading-relaxed">
-              Choose how Payment Query looks on this browser.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex items-center justify-between gap-6 px-6 py-6">
-            <div className="space-y-1.5">
-              <Label htmlFor="dark-mode" className="text-sm font-medium">Dark mode</Label>
-              <p id="dark-mode-description" className="text-sm text-muted-foreground">
-                Use a darker appearance. Your preference is saved for future visits.
-              </p>
-            </div>
-            <ThemeSwitch />
           </CardContent>
         </Card>
 
