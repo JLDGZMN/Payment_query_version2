@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
+import { ThemeSwitch } from "@/components/theme-switch";
 import {
   Card,
   CardContent,
@@ -177,7 +178,7 @@ export default function ProfilePage() {
                   <Badge variant="outline" className={dashboardBadgeClass}>Account settings</Badge>
                 </div>
                 <p className="max-w-2xl text-sm text-muted-foreground">
-                  Review your account details, see the team credits, and keep your sign-in secure.
+                  Review your account details, customize your appearance, and keep your sign-in secure.
                 </p>
               </div>
             </div>
@@ -215,6 +216,24 @@ export default function ProfilePage() {
               <Label className="text-xs font-medium text-foreground/90">Email</Label>
               <Input value={currentEmail} readOnly className={dashboardReadOnlyInputClass} />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className={dashboardCardClass}>
+          <CardHeader className="gap-1.5 border-b border-border/50 px-6 pt-6 pb-4">
+            <CardTitle className="text-lg font-semibold tracking-tight">Appearance</CardTitle>
+            <CardDescription className="text-sm leading-relaxed">
+              Choose how Payment Query looks on this browser.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex items-center justify-between gap-6 px-6 py-6">
+            <div className="space-y-1.5">
+              <Label htmlFor="dark-mode" className="text-sm font-medium">Dark mode</Label>
+              <p id="dark-mode-description" className="text-sm text-muted-foreground">
+                Use a darker appearance. Your preference is saved for future visits.
+              </p>
+            </div>
+            <ThemeSwitch />
           </CardContent>
         </Card>
 
@@ -325,7 +344,7 @@ export default function ProfilePage() {
                         newPassword.length === 0
                           ? "text-muted-foreground"
                           : requirement.isValid
-                            ? "text-green-600"
+                            ? "text-green-600 dark:text-green-400"
                             : "text-destructive";
 
                       return (
@@ -371,7 +390,7 @@ export default function ProfilePage() {
                   {confirmPassword ? (
                     <p
                       id="profile-confirm-password-status"
-                      className={`text-xs ${passwordsMatch ? "text-green-600" : "text-amber-600"}`}
+                      className={`text-xs ${passwordsMatch ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400"}`}
                     >
                       {passwordsMatch ? "Passwords match." : "Passwords do not match yet."}
                     </p>
