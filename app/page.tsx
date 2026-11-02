@@ -83,7 +83,7 @@ function SignInPageContent() {
     setError("");
     setLoading(true);
 
-    const { error } = await authClient.signIn.username({
+    const { data, error } = await authClient.signIn.username({
       username,
       password,
     });
@@ -91,8 +91,11 @@ function SignInPageContent() {
     if (error) {
       setError(error.message ?? "Sign in failed");
     } else {
-      window.sessionStorage.setItem(AUTH_FLASH_KEY, "login-success");
-      window.sessionStorage.setItem(AUTH_FLASH_USERNAME_KEY, username.trim());
+      const firstLoginKey = `auth-first-login:${username.trim().toLowerCase()}`;
+      const isFirstLogin = window.localStorage.getItem(firstLoginKey) === "pending";
+      window.sessionStorage.setItem(AUTH_FLASH_KEY, isFirstLogin ? "first-login-success" : "login-success");
+      window.sessionStorage.setItem(AUTH_FLASH_USERNAME_KEY, data?.user.name?.trim() || username.trim());
+      window.localStorage.removeItem(firstLoginKey);
       router.push(searchParams.get("redirect") ?? "/dashboard");
     }
 

@@ -73,6 +73,7 @@ export default function SignUpPage() {
     if (error) {
       setError(error.message ?? "Sign up failed.");
     } else {
+      window.localStorage.setItem(`auth-first-login:${username.trim().toLowerCase()}`, "pending");
       await authClient.signOut();
       const params = new URLSearchParams({ signup: "success" });
       const trimmedUsername = username.trim();

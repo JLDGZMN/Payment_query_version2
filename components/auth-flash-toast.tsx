@@ -20,13 +20,15 @@ export function AuthFlashToast() {
       return;
     }
 
-    if (flash === "login-success" && pathname.startsWith("/dashboard")) {
-      const formattedUsername = flashUsername?.toUpperCase();
-
+    if ((flash === "first-login-success" || flash === "login-success") && pathname.startsWith("/dashboard")) {
       toast.success(
-        formattedUsername
-          ? `Login successful. Welcome back, ${formattedUsername}!`
-          : "Login successful, good to have you back."
+        flash === "first-login-success"
+          ? flashUsername
+            ? `Welcome, ${flashUsername}! You’re all set.`
+            : "Welcome! You’re all set."
+          : flashUsername
+            ? `Welcome back, ${flashUsername}!`
+            : "Welcome back!"
       );
       window.sessionStorage.removeItem(AUTH_FLASH_KEY);
       window.sessionStorage.removeItem(AUTH_FLASH_USERNAME_KEY);
